@@ -499,19 +499,19 @@ const defaultNotes =
 `Notes...
 
 🔵
-Notes...
+• Notes...
 
 🟠
-Notes...
+• Notes...
 
 🟢
-Notes...
+• Notes...
 
 🟣
-Notes...
+• Notes...
 
 🟡
-Notes...`;
+• Notes...`;
 
 notesArea.value = defaultNotes;
 
@@ -690,19 +690,19 @@ function renderCurrentTab() {
 `Notes...
 
 🔵
-Notes...
+• Notes...
 
 🟠
-Notes...
+• Notes...
 
 🟢
-Notes...
+• Notes...
 
 🟣
-Notes...
+• Notes...
 
 🟡
-Notes...`;
+• Notes...`;
 } else {
   notesArea.value = tab.notes;
 }
@@ -1047,13 +1047,26 @@ function showPlayerMenu(playerEl, player) {
     menu.appendChild(item);
   });
 
+/* -----------------------------------------
+   REMOVE LAST ACTION
+----------------------------------------- */
+const removeLastItem = document.createElement('div');
+removeLastItem.className = 'player-menu-item';
+removeLastItem.textContent = 'Remove last action';
+removeLastItem.style.color = '#ff6666';
+removeLastItem.addEventListener('click', () => {
+  hidePlayerMenu();
+  removeLastAction(player);
+});
+menu.appendChild(removeLastItem);
+
   /* -----------------------------------------
      RESET PLAYER
   ----------------------------------------- */
   const resetItem = document.createElement('div');
   resetItem.className = 'player-menu-item';
   resetItem.textContent = 'RESET PLAYER';
-  resetItem.style.color = '#ff6666'; // optional
+  resetItem.style.color = '#ff6666';
   resetItem.addEventListener('click', () => {
     hidePlayerMenu();
     resetPlayer(player);
@@ -1078,10 +1091,29 @@ function hidePlayerMenu() {
 
 function onPlayerClick(e) {
   e.stopPropagation();
+
   const playerId = e.currentTarget.dataset.id;
   const tab = state.tabs[state.currentMap][state.currentTeam];
   const player = tab.players.find(p => p.id === playerId);
   if (!player) return;
+
+  // Important: prevent new Rush/Walk drawing after this
+  state.currentAction = null;
+
+  // Remove 1-point ghost path WITHOUT re-rendering
+  if (player.paths && player.paths.length > 0) {
+    const last = player.paths[player.paths.length - 1];
+    if ((last.type === 'Rush' || last.type === 'Walk') &&
+        last.points &&
+        last.points.length === 1) {
+
+      // Remove ghost path silently
+      player.paths.pop();
+      // DO NOT render here — this breaks menu positioning
+    }
+  }
+
+  // Now open the menu with correct DOM coordinates
   showPlayerMenu(e.currentTarget, player);
 }
 
@@ -1152,6 +1184,54 @@ if (action === 'Teleport') {
 }
 
   // Rush/Walk handled in onPlayerMouseDown
+}
+
+function removeLastAction(player) {
+  const map = state.currentMap;
+  const team = state.currentTeam;
+
+  if (!player.paths || player.paths.length === 0) return;
+
+  // Save history snapshot
+  pushHistorySnapshot(map, team);
+
+  const last = player.paths[player.paths.length - 1];
+
+  // RUSH / WALK → remove entire path and reset position
+  if ((last.type === 'Rush' || last.type === 'Walk') && last.points) {
+    const start = last.points[0];
+    player.x = start.x;
+    player.y = start.y;
+
+    player.paths.pop();
+
+    overviewSvg.innerHTML = '';
+    playersLayer.innerHTML = '';
+    renderPlayersAndPaths();
+    return;
+  }
+
+  // TELEPORT → revert to original position
+  if (last.type === 'Teleport') {
+    if (last.from) {
+      player.x = last.from.x;
+      player.y = last.from.y;
+    }
+
+    player.paths.pop();
+
+    overviewSvg.innerHTML = '';
+    playersLayer.innerHTML = '';
+    renderPlayersAndPaths();
+    return;
+  }
+
+  // ALL OTHER ACTIONS → simply remove
+  player.paths.pop();
+
+  overviewSvg.innerHTML = '';
+  playersLayer.innerHTML = '';
+  renderPlayersAndPaths();
 }
 
 function resetPlayer(player) {
