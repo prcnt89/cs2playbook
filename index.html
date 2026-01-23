@@ -541,18 +541,21 @@ let playerMenuEl = null;
 ------------------------------------------------------- */
 
 function initState() {
+  // Only initialize if tabs are empty
+  if (Object.keys(state.tabs).length > 0) return;
+
   maps.forEach(map => {
     state.tabs[map] = {};
     teams.forEach(team => {
       state.tabs[map][team] = {
-  players: [],
-  paths: [],
-  notes: '',
-  history: [],
-  savedTactics: {},
-  currentTacticName: null,
-  stats: { wins: 0, losses: 0 }
-};
+        players: [],
+        paths: [],
+        notes: '',
+        history: [],
+        savedTactics: {},
+        currentTacticName: null,
+        stats: { wins: 0, losses: 0 }
+      };
       resetTab(map, team, false);
       pushHistorySnapshot(map, team);
     });
@@ -2007,10 +2010,12 @@ btnImportPlaybook.addEventListener('click', () => {
       try {
         const imported = JSON.parse(ev.target.result);
 
-        // Apply playbook
-        state.tabs = imported;
+        // Merge imported maps into existing state
+        for (const mapName in imported) {
+          state.tabs[mapName] = imported[mapName];
+        }
 
-        // Clear history
+        // Clear history for all maps/teams
         Object.values(state.tabs).forEach(map =>
           Object.values(map).forEach(teamTab => teamTab.history = [])
         );
