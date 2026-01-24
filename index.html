@@ -582,6 +582,24 @@ function isInsideMolotov(x, y) {
   return false;
 }
 
+function applyGrenadeDamage(g) {
+  const radius = 70; // HE-Wirkungsradius
+  const now = performance.now();
+
+  state.animation.players.forEach(p => {
+    if (!p.alive) return;
+
+    const dx = p.x - g.to.x;
+    const dy = p.y - g.to.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist <= radius) {
+      const dmg = 50 + Math.floor(Math.random() * 31); // 50–80
+      p.hp -= dmg;
+    }
+  });
+}
+
 function isFlashed(player) {
   const now = performance.now();
 
@@ -2136,6 +2154,9 @@ function createUtilityExplosion(g) {
 
   let duration = 600;
 
+  /* -------------------------------------------------------
+     FLASHBANG
+  ------------------------------------------------------- */
   if (g.type === 'Flashbang') {
     el.style.width = '100px';
     el.style.height = '100px';
@@ -2161,6 +2182,9 @@ function createUtilityExplosion(g) {
     });
   }
 
+  /* -------------------------------------------------------
+     SMOKE
+  ------------------------------------------------------- */
   if (g.type === 'Smoke') {
     el.style.width = '60px';
     el.style.height = '60px';
@@ -2176,25 +2200,33 @@ function createUtilityExplosion(g) {
     });
   }
 
+  /* -------------------------------------------------------
+     MOLOTOV
+  ------------------------------------------------------- */
   if (g.type === 'Molotov') {
     el.style.width = '35px';
     el.style.height = '35px';
     el.style.background = 'radial-gradient(circle, rgba(255,150,0,0.9), rgba(255,0,0,0.6))';
     duration = 7000;
 
-    // Register Molotov fire zone
     activeMolotovs.push({
       x: g.to.x,
       y: g.to.y,
-      radius: 40, // Molotov radius
+      radius: 40,
       endTime: performance.now() + duration
     });
   }
 
+  /* -------------------------------------------------------
+     HE GRENADE (NEU)
+  ------------------------------------------------------- */
   if (g.type === 'Grenade') {
     el.style.width = '25px';
     el.style.height = '25px';
     el.style.background = 'rgba(255,0,0,0.8)';
+
+    // HE-Damage anwenden
+    applyGrenadeDamage(g);
   }
 
   playersLayerBottom.appendChild(el);
