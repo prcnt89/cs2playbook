@@ -370,6 +370,7 @@ body {
             <!-- Play/Stop Menü -->
             <div class="play-menu">
               <button id="btnPlay">Simulate</button>
+              <button id="btnPlayVs">Simulate (with Enemy)</button>
               <button id="btnPause">Pause / Continue</button>
               <button id="btnStop">Reset</button>
             </div>
@@ -525,6 +526,7 @@ const btnUndo = document.getElementById('btnUndo');
 const btnPlay = document.getElementById('btnPlay');
 const btnStop = document.getElementById('btnStop');
 const btnPause = document.getElementById('btnPause');
+const btnPlayVs = document.getElementById('btnPlayVs');
 
 const btnImportPlaybook = document.getElementById('btnImportPlaybook');
 const btnExportPlaybook = document.getElementById('btnExportPlaybook');
@@ -1463,6 +1465,108 @@ if (path.type === 'Rush' || path.type === 'Walk') {
   return animPlayers;
 }
 
+function buildEnemyAnimationState(enemyPlayers) {
+  const animPlayers = [];
+
+  enemyPlayers.forEach(player => {
+    const animPaths = player.paths.map(path => {
+      if (path.type === 'Wait') {
+        return {
+          type: 'Wait',
+          seconds: path.seconds,
+          x: path.x,
+          y: path.y
+        };
+      }
+
+      if (
+        path.type === 'Grenade' ||
+        path.type === 'Flashbang' ||
+        path.type === 'Smoke' ||
+        path.type === 'Molotov'
+      ) {
+        const dx = path.to.x - path.from.x;
+        const dy = path.to.y - path.from.y;
+        const length = Math.sqrt(dx*dx + dy*dy);
+
+        return {
+          type: path.type,
+          from: path.from,
+          to: path.to,
+          dx, dy,
+          length,
+          speed: SPEED_UTILITY * mapSpeedMultiplier[state.currentMap],
+          progress: 0,
+          el: null
+        };
+      }
+
+      if (path.type === 'PlantBomb') {
+        return {
+          type: 'PlantBomb',
+          x: path.x,
+          y: path.y,
+          progress: 0,
+          duration: 3.5,
+          planted: false
+        };
+      }
+
+      if (path.type === 'Teleport') {
+        return {
+          type: 'Teleport',
+          from: path.from,
+          to: path.to
+        };
+      }
+
+      if (path.type === 'Rush' || path.type === 'Walk') {
+        const segments = [];
+        let totalLength = 0;
+
+        for (let i = 0; i < path.points.length - 1; i++) {
+          const a = path.points[i];
+          const b = path.points[i + 1];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const len = Math.sqrt(dx*dx + dy*dy);
+          if (len > 0) {
+            segments.push({ from: a, to: b, length: len });
+            totalLength += len;
+          }
+        }
+
+        const mult = mapSpeedMultiplier[state.currentMap];
+
+        return {
+          type: path.type,
+          segments,
+          totalLength,
+          speed: (path.type === 'Rush' ? SPEED_RUSH : SPEED_WALK) * mult
+        };
+      }
+    });
+
+    const startPos = animPaths[0]?.segments?.[0]?.from || { x: player.x, y: player.y };
+
+    animPlayers.push({
+      color: "#333",        // dark grey
+      x: startPos.x,
+      y: startPos.y,
+      paths: animPaths,
+      currentPathIndex: 0,
+      currentSegmentIndex: 0,
+      distanceOnSegment: 0,
+      waitRemaining: null,
+      done: false,
+      el: null,
+      isEnemy: true
+    });
+  });
+
+  return animPlayers;
+}
+
 function startAnimation() {
   stopAnimation();
 
@@ -1850,7 +1954,7 @@ function resetRoundTimer() {
 }
 
 function startPreCountdown(callback) {
-  let timeLeft = 3;
+  let timeLeft = 2;
   roundTimeDisplay.textContent = timeLeft;
 
   state.roundTimer.interval = setInterval(() => {
@@ -1886,7 +1990,7 @@ function startRoundTimer() {
 }
 
 function startDurationPreCountdown(callback) {
-  let timeLeft = 3;
+  let timeLeft = 2;
   durationDisplay.textContent = timeLeft;
 
   state.durationTimer.preCountdown = setInterval(() => {
@@ -1927,6 +2031,74 @@ btnPlay.addEventListener('click', () => {
   // Both timers with pre‑countdown
   startPreCountdown(() => {
     startAnimation();
+    startRoundTimer();
+  });
+
+  startDurationPreCountdown(() => {
+    startDurationTimer();
+  });
+});
+
+// -------------------------------------------------------
+// SIMULATE VS RANDOM ENEMY
+// -------------------------------------------------------
+btnPlayVs.addEventListener('click', () => {
+  // Reset animation + timers
+  stopAnimation();
+  resetRoundTimer();
+  state.paused = false;
+
+  const map = state.currentMap;
+  const myTeam = state.currentTeam;
+  const enemyTeam = myTeam === "T" ? "CT" : "T";
+
+  const enemyTab = state.tabs[map][enemyTeam];
+  const enemyTactics = Object.keys(enemyTab.savedTactics);
+
+  if (enemyTactics.length === 0) {
+    alert("No enemy tactics found for this map.\nYou have to create tactics for the other team on this map.");
+    return;
+  }
+
+  // Random enemy tactic
+  const randomName = enemyTactics[Math.floor(Math.random() * enemyTactics.length)];
+  const randomTactic = enemyTab.savedTactics[randomName];
+
+  // Build animation state for both teams
+  const myAnim = buildAnimationState();
+  const enemyAnim = buildEnemyAnimationState(randomTactic.players);
+
+  // Init animation state
+  state.animation.players = [...myAnim, ...enemyAnim];
+  state.animation.grenades = [];          // WICHTIG: sonst crasht .filter()
+  state.animation.running = false;
+  state.animation.lastTime = null;
+  state.animation.frameRequest = null;
+
+  // Clear bottom layer and render both teams
+  playersLayerBottom.innerHTML = '';
+
+  state.animation.players.forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'player-bottom';
+    el.style.backgroundColor = p.color;
+    el.style.left = p.x + 'px';
+    el.style.top = p.y + 'px';
+
+    // Enemy outline
+    if (p.isEnemy) {
+      el.style.border = "1px solid #ff4444";
+    }
+
+    playersLayerBottom.appendChild(el);
+    p.el = el;
+  });
+
+  // Start timers + animation with pre-countdown
+  startPreCountdown(() => {
+    state.animation.running = true;
+    state.animation.lastTime = null;
+    state.animation.frameRequest = requestAnimationFrame(animationLoop);
     startRoundTimer();
   });
 
@@ -2023,7 +2195,24 @@ btnImportPlaybook.addEventListener('click', () => {
         renderTabs();
         renderCurrentTab();
 
-        alert("Playbook successfully imported!");
+        // ---------------------------------------------
+        // Count all imported tactics
+        // ---------------------------------------------
+        let tacticCount = 0;
+        for (const mapName in state.tabs) {
+          for (const teamName in state.tabs[mapName]) {
+            const teamTab = state.tabs[mapName][teamName];
+            if (teamTab.savedTactics) {
+              tacticCount += Object.keys(teamTab.savedTactics).length;
+            }
+          }
+        }
+
+        alert(
+          "Playbook successfully imported!\n" +
+          tacticCount + " tactics found."
+        );
+
       } catch (err) {
         alert("Error importing the JSON file.");
       }
@@ -2353,6 +2542,12 @@ overviewTopImg.addEventListener('click', (e) => {
 initState();
 initTabsUI();
 renderCurrentTab();
+
+// Warn user before closing the tab or browser window
+window.addEventListener("beforeunload", (e) => {
+  e.preventDefault();
+  e.returnValue = ""; // Required for Chrome, Firefox, Edge
+});
 </script>
 </body>
 </html>
