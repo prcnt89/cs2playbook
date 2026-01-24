@@ -473,6 +473,9 @@ const STARTING_HP = 100;
 // Active smoke clouds (each has x, y, radius, endTime)
 let activeSmokes = [];
 
+// Active flash effects: { player, endTime }
+let activeFlashes = [];
+
 // Load mask for a given map (graphics/<map>_mask.png)
 function loadMaskForMap(mapName, callback) {
   if (currentMaskMap === mapName && maskImageData) {
@@ -558,6 +561,16 @@ function isInsideSmoke(x, y) {
   }
 
   return false;
+}
+
+function isFlashed(player) {
+  const now = performance.now();
+
+  // Entferne abgelaufene Flash-Effekte
+  activeFlashes = activeFlashes.filter(f => f.endTime > now);
+
+  // Prüfen, ob dieser Spieler geflasht ist
+  return activeFlashes.some(f => f.player === player);
 }
 
 /* -------------------------------------------------------
@@ -2040,7 +2053,10 @@ function performShootingStep() {
 
     if (!target) return;
 
-    if (Math.random() < HIT_PROBABILITY) {
+    // Flash-Effekt: Trefferchance stark reduziert
+    const hitChance = isFlashed(shooter) ? 0.10 : HIT_PROBABILITY;
+
+    if (Math.random() < hitChance) {
       target.hp -= DAMAGE_PER_HIT;
     }
   });
@@ -2089,6 +2105,25 @@ function createUtilityExplosion(g) {
     el.style.height = '100px';
     el.style.background = 'rgba(255,255,255,0.9)';
     duration = 200;
+
+    // Flash-Effekt anwenden
+    const flashRadius = 80; // Flash-Wirkungsradius
+    const now = performance.now();
+
+    state.animation.players.forEach(p => {
+      if (!p.alive) return;
+
+      const dx = p.x - g.to.x;
+      const dy = p.y - g.to.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (dist <= flashRadius) {
+        activeFlashes.push({
+          player: p,
+          endTime: now + 3000 // 3 Sekunden Flash
+        });
+      }
+    });
   }
 
   if (g.type === 'Smoke') {
@@ -2098,11 +2133,10 @@ function createUtilityExplosion(g) {
     el.style.filter = 'blur(6px)';
     duration = 18000;
 
-    // Register smoke blocker
     activeSmokes.push({
       x: g.to.x,
       y: g.to.y,
-      radius: 30,        // smoke radius in px
+      radius: 30,
       endTime: performance.now() + duration
     });
   }
