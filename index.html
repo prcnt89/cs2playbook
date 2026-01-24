@@ -583,8 +583,7 @@ function isInsideMolotov(x, y) {
 }
 
 function applyGrenadeDamage(g) {
-  const radius = 70; // HE-Wirkungsradius
-  const now = performance.now();
+  const radius = 12.5; // HE-Schadensradius = ursprünglicher Animationsradius
 
   state.animation.players.forEach(p => {
     if (!p.alive) return;
@@ -2155,67 +2154,69 @@ function createUtilityExplosion(g) {
   let duration = 600;
 
   /* -------------------------------------------------------
-     FLASHBANG
-  ------------------------------------------------------- */
-  if (g.type === 'Flashbang') {
-    el.style.width = '100px';
-    el.style.height = '100px';
-    el.style.background = 'rgba(255,255,255,0.9)';
-    duration = 200;
+   FLASHBANG (angepasster Radius)
+------------------------------------------------------- */
+if (g.type === 'Flashbang') {
+  const radius = 50; // ursprünglicher Animationsradius
+  el.style.width = radius * 2 + 'px';
+  el.style.height = radius * 2 + 'px';
+  el.style.background = 'rgba(255,255,255,0.9)';
+  duration = 200;
 
-    const flashRadius = 80;
-    const now = performance.now();
+  const now = performance.now();
 
-    state.animation.players.forEach(p => {
-      if (!p.alive) return;
+  state.animation.players.forEach(p => {
+    if (!p.alive) return;
 
-      const dx = p.x - g.to.x;
-      const dy = p.y - g.to.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
+    const dx = p.x - g.to.x;
+    const dy = p.y - g.to.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
 
-      if (dist <= flashRadius) {
-        activeFlashes.push({
-          player: p,
-          endTime: now + 3000
-        });
-      }
-    });
-  }
+    if (dist <= radius) {
+      activeFlashes.push({
+        player: p,
+        endTime: now + 3000 // 3 Sekunden Flash
+      });
+    }
+  });
+}
 
   /* -------------------------------------------------------
      SMOKE
   ------------------------------------------------------- */
   if (g.type === 'Smoke') {
-    el.style.width = '60px';
-    el.style.height = '60px';
-    el.style.background = 'rgba(150,150,150,0.7)';
-    el.style.filter = 'blur(6px)';
-    duration = 18000;
+  const radius = 30; // ursprünglicher Animationsradius
+  el.style.width = radius * 2 + 'px';
+  el.style.height = radius * 2 + 'px';
+  el.style.background = 'rgba(150,150,150,0.7)';
+  el.style.filter = 'blur(6px)';
+  duration = 18000;
 
-    activeSmokes.push({
-      x: g.to.x,
-      y: g.to.y,
-      radius: 30,
-      endTime: performance.now() + duration
-    });
-  }
+  activeSmokes.push({
+    x: g.to.x,
+    y: g.to.y,
+    radius,
+    endTime: performance.now() + duration
+  });
+}
 
   /* -------------------------------------------------------
      MOLOTOV
   ------------------------------------------------------- */
   if (g.type === 'Molotov') {
-    el.style.width = '35px';
-    el.style.height = '35px';
-    el.style.background = 'radial-gradient(circle, rgba(255,150,0,0.9), rgba(255,0,0,0.6))';
-    duration = 7000;
+  const radius = 17.5; // ursprünglicher Animationsradius
+  el.style.width = radius * 2 + 'px';
+  el.style.height = radius * 2 + 'px';
+  el.style.background = 'radial-gradient(circle, rgba(255,150,0,0.9), rgba(255,0,0,0.6))';
+  duration = 7000;
 
-    activeMolotovs.push({
-      x: g.to.x,
-      y: g.to.y,
-      radius: 40,
-      endTime: performance.now() + duration
-    });
-  }
+  activeMolotovs.push({
+    x: g.to.x,
+    y: g.to.y,
+    radius,
+    endTime: performance.now() + duration
+  });
+}
 
   /* -------------------------------------------------------
      HE GRENADE (NEU)
