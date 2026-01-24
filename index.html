@@ -476,6 +476,9 @@ let activeSmokes = [];
 // Active flash effects: { player, endTime }
 let activeFlashes = [];
 
+// Active molotov fires: { x, y, radius, endTime }
+let activeMolotovs = [];
+
 // Load mask for a given map (graphics/<map>_mask.png)
 function loadMaskForMap(mapName, callback) {
   if (currentMaskMap === mapName && maskImageData) {
@@ -563,6 +566,22 @@ function isInsideSmoke(x, y) {
   return false;
 }
 
+function isInsideMolotov(x, y) {
+  const now = performance.now();
+
+  // Remove expired molotovs
+  activeMolotovs = activeMolotovs.filter(m => m.endTime > now);
+
+  for (const m of activeMolotovs) {
+    const dx = x - m.x;
+    const dy = y - m.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist <= m.radius) return true;
+  }
+
+  return false;
+}
+
 function isFlashed(player) {
   const now = performance.now();
 
@@ -584,13 +603,14 @@ const state = {
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
     animation: {
-    running: false,
-    players: [],
-    frameRequest: null,
-    lastTime: null,
-    grenades: [],
-    shootAccumulator: 0
-  },
+  running: false,
+  players: [],
+  frameRequest: null,
+  lastTime: null,
+  grenades: [],
+  shootAccumulator: 0,     // für Schüsse alle 0.12s
+  molotovAccumulator: 0    // NEU: für Molotov-Damage pro Sekunde
+},
 paused: false,
 roundTimer: {
   interval: null,
@@ -1780,6 +1800,7 @@ function animationLoop(timestamp) {
   let allPlayersDone = true;
 
   state.animation.shootAccumulator += dt;
+  state.animation.molotovAccumulator += dt;
 
   /* -------------------------------------------------------
      ANIMATE PLAYERS
@@ -1983,6 +2004,21 @@ function animationLoop(timestamp) {
   }
 
   /* -------------------------------------------------------
+     MOLOTOV DAMAGE (40 HP / Sekunde)
+  ------------------------------------------------------- */
+  while (state.animation.molotovAccumulator >= 1.0) {
+    state.animation.molotovAccumulator -= 1.0;
+
+    state.animation.players.forEach(p => {
+      if (!p.alive) return;
+
+      if (isInsideMolotov(p.x, p.y)) {
+        p.hp -= 40;
+      }
+    });
+  }
+
+  /* -------------------------------------------------------
      REMOVE DEAD PLAYERS
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
@@ -2106,8 +2142,7 @@ function createUtilityExplosion(g) {
     el.style.background = 'rgba(255,255,255,0.9)';
     duration = 200;
 
-    // Flash-Effekt anwenden
-    const flashRadius = 80; // Flash-Wirkungsradius
+    const flashRadius = 80;
     const now = performance.now();
 
     state.animation.players.forEach(p => {
@@ -2120,7 +2155,7 @@ function createUtilityExplosion(g) {
       if (dist <= flashRadius) {
         activeFlashes.push({
           player: p,
-          endTime: now + 3000 // 3 Sekunden Flash
+          endTime: now + 3000
         });
       }
     });
@@ -2146,6 +2181,14 @@ function createUtilityExplosion(g) {
     el.style.height = '35px';
     el.style.background = 'radial-gradient(circle, rgba(255,150,0,0.9), rgba(255,0,0,0.6))';
     duration = 7000;
+
+    // Register Molotov fire zone
+    activeMolotovs.push({
+      x: g.to.x,
+      y: g.to.y,
+      radius: 40, // Molotov radius
+      endTime: performance.now() + duration
+    });
   }
 
   if (g.type === 'Grenade') {
