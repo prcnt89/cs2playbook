@@ -1743,7 +1743,6 @@ function animationLoop(timestamp) {
 
   let allPlayersDone = true;
 
-  // Shooting accumulator (in Sekunden)
   state.animation.shootAccumulator += dt;
 
   /* -------------------------------------------------------
@@ -1810,7 +1809,7 @@ function animationLoop(timestamp) {
         continue;
       }
 
-      /* GRENADE / FLASH / SMOKE / MOLOTOV */
+      /* UTILITY */
       if (
         path.type === 'Grenade' ||
         path.type === 'Flashbang' ||
@@ -1940,7 +1939,7 @@ function animationLoop(timestamp) {
   });
 
   /* -------------------------------------------------------
-     SHOOTING (alle 0.12s)
+     SHOOTING
   ------------------------------------------------------- */
   while (state.animation.shootAccumulator >= SHOOT_INTERVAL) {
     state.animation.shootAccumulator -= SHOOT_INTERVAL;
@@ -1948,7 +1947,7 @@ function animationLoop(timestamp) {
   }
 
   /* -------------------------------------------------------
-     Entferne tote Spieler aus der Anzeige
+     REMOVE DEAD PLAYERS
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
     if (p.alive && p.hp <= 0) {
@@ -1960,28 +1959,28 @@ function animationLoop(timestamp) {
     }
   });
 
-  // Prüfen, ob noch lebende Spieler existieren
-  const alivePlayers = state.animation.players.filter(p => p.alive);
-  if (alivePlayers.length === 0) {
-    allPlayersDone = true;
+  /* -------------------------------------------------------
+     WIN CHECK
+  ------------------------------------------------------- */
+  if (checkWinCondition()) {
+    state.animation.running = false;
+    state.animation.frameRequest = null;
+
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+
+    return;
   }
 
   /* -------------------------------------------------------
-     FINISHED? → animation + pause timers, last frame stays
+     FINISHED?
   ------------------------------------------------------- */
   if (allPlayersDone && state.animation.grenades.length === 0) {
     state.animation.running = false;
     state.animation.frameRequest = null;
 
-    if (state.roundTimer.interval) {
-      clearInterval(state.roundTimer.interval);
-      state.roundTimer.interval = null;
-    }
-
-    if (state.durationTimer.interval) {
-      clearInterval(state.durationTimer.interval);
-      state.durationTimer.interval = null;
-    }
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
     return;
   }
@@ -1992,21 +1991,18 @@ function animationLoop(timestamp) {
 function performShootingStep() {
   const players = state.animation.players.filter(p => p.alive);
 
-  // Für jeden Spieler: sichtbare Gegner suchen, auf einen schießen
   players.forEach(shooter => {
     const enemies = players.filter(
       t => t.alive && t.isEnemy !== shooter.isEnemy
     );
     if (enemies.length === 0) return;
 
-    // Sichtbare Gegner filtern
     const visibleEnemies = enemies.filter(enemy =>
       hasLineOfSight(shooter.x, shooter.y, enemy.x, enemy.y)
     );
 
     if (visibleEnemies.length === 0) return;
 
-    // Nächsten Gegner wählen
     let target = null;
     let bestDist = Infinity;
     visibleEnemies.forEach(enemy => {
@@ -2021,11 +2017,35 @@ function performShootingStep() {
 
     if (!target) return;
 
-    // Schuss mit 60% Trefferchance
     if (Math.random() < HIT_PROBABILITY) {
       target.hp -= DAMAGE_PER_HIT;
     }
   });
+}
+
+function checkWinCondition() {
+  const aliveT = state.animation.players.filter(p => p.alive && !p.isEnemy);
+  const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
+
+  // Beide tot → unentschieden
+  if (aliveT.length === 0 && aliveCT.length === 0) {
+    alert("Draw!");
+    return true;
+  }
+
+  // T gewinnt
+  if (aliveCT.length === 0) {
+    alert("Terrorists win!");
+    return true;
+  }
+
+  // CT gewinnt
+  if (aliveT.length === 0) {
+    alert("Counter‑Terrorists win!");
+    return true;
+  }
+
+  return false;
 }
 
 function createUtilityExplosion(g) {
