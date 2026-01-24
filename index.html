@@ -625,8 +625,9 @@ const state = {
   frameRequest: null,
   lastTime: null,
   grenades: [],
-  shootAccumulator: 0,     // für Schüsse alle 0.12s
-  molotovAccumulator: 0    // NEU: für Molotov-Damage pro Sekunde
+  shootAccumulator: 0,
+  molotovAccumulator: 0,
+  checkWin: false
 },
 paused: false,
 roundTimer: {
@@ -2051,6 +2052,7 @@ function animationLoop(timestamp) {
   /* -------------------------------------------------------
      WIN CHECK
   ------------------------------------------------------- */
+  if (state.animation.checkWin) {
   if (checkWinCondition()) {
     state.animation.running = false;
     state.animation.frameRequest = null;
@@ -2060,6 +2062,7 @@ function animationLoop(timestamp) {
 
     return;
   }
+}
 
   /* -------------------------------------------------------
      FINISHED?
@@ -2334,6 +2337,8 @@ function startDurationTimer() {
 ------------------------------------------------------- */
 
 btnPlay.addEventListener('click', () => {
+  state.animation.checkWin = false;
+
   stopAnimation();
   resetRoundTimer();
 
@@ -2352,7 +2357,8 @@ btnPlay.addEventListener('click', () => {
 // SIMULATE VS RANDOM ENEMY
 // -------------------------------------------------------
 btnPlayVs.addEventListener('click', () => {
-  // Reset animation + timers
+  state.animation.checkWin = true;
+
   stopAnimation();
   resetRoundTimer();
   state.paused = false;
