@@ -470,6 +470,9 @@ const HIT_PROBABILITY = 0.6;   // 60%
 const DAMAGE_PER_HIT = 35;     // HP
 const STARTING_HP = 100;
 
+// Active smoke clouds (each has x, y, radius, endTime)
+let activeSmokes = [];
+
 // Load mask for a given map (graphics/<map>_mask.png)
 function loadMaskForMap(mapName, callback) {
   if (currentMaskMap === mapName && maskImageData) {
@@ -520,21 +523,41 @@ function getMaskBrightness(x, y) {
 // Check line of sight between two positions using mask
 // white = visible, black = walls
 function hasLineOfSight(x1, y1, x2, y2) {
-  if (!maskImageData) return true; // fallback: everything visible
+  if (!maskImageData) return true;
 
   const steps = 40;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const x = x1 + (x2 - x1) * t;
     const y = y1 + (y2 - y1) * t;
-    const brightness = getMaskBrightness(x, y);
 
-    // Schwarz / sehr dunkel = blockiert
+    // Smoke blocks vision
+    if (isInsideSmoke(x, y)) {
+      return false;
+    }
+
+    const brightness = getMaskBrightness(x, y);
     if (brightness < 30) {
       return false;
     }
   }
   return true;
+}
+
+function isInsideSmoke(x, y) {
+  const now = performance.now();
+
+  // Remove expired smokes
+  activeSmokes = activeSmokes.filter(s => s.endTime > now);
+
+  for (const s of activeSmokes) {
+    const dx = x - s.x;
+    const dy = y - s.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist <= s.radius) return true;
+  }
+
+  return false;
 }
 
 /* -------------------------------------------------------
@@ -2059,9 +2082,8 @@ function createUtilityExplosion(g) {
   el.style.opacity = '1';
   el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
 
-  let duration = 600; // Default (Flash, HE)
+  let duration = 600;
 
-  // Typabhängige Explosion
   if (g.type === 'Flashbang') {
     el.style.width = '100px';
     el.style.height = '100px';
@@ -2074,14 +2096,22 @@ function createUtilityExplosion(g) {
     el.style.height = '60px';
     el.style.background = 'rgba(150,150,150,0.7)';
     el.style.filter = 'blur(6px)';
-    duration = 18000; // 18 seconds
+    duration = 18000;
+
+    // Register smoke blocker
+    activeSmokes.push({
+      x: g.to.x,
+      y: g.to.y,
+      radius: 30,        // smoke radius in px
+      endTime: performance.now() + duration
+    });
   }
 
   if (g.type === 'Molotov') {
     el.style.width = '35px';
     el.style.height = '35px';
     el.style.background = 'radial-gradient(circle, rgba(255,150,0,0.9), rgba(255,0,0,0.6))';
-    duration = 7000; // 7 seconds
+    duration = 7000;
   }
 
   if (g.type === 'Grenade') {
@@ -2092,7 +2122,6 @@ function createUtilityExplosion(g) {
 
   playersLayerBottom.appendChild(el);
 
-  // Flash & grenade fade-out
   if (g.type === 'Flashbang' || g.type === 'Grenade') {
     requestAnimationFrame(() => {
       el.style.transform = 'translate(-50%, -50%) scale(1.6)';
@@ -2100,7 +2129,6 @@ function createUtilityExplosion(g) {
     });
   }
 
-  // Remove when finished
   setTimeout(() => el.remove(), duration);
 }
 
@@ -2227,7 +2255,7 @@ btnPlayVs.addEventListener('click', () => {
   const enemyTactics = Object.keys(enemyTab.savedTactics);
 
   if (enemyTactics.length === 0) {
-    alert("No enemy tactics found for this map.\nYou have to create tactics for the other team on this map.");
+    alert("No enemy tactics found for this map.\nCreate a tactic for the other team on this map.");
     return;
   }
 
