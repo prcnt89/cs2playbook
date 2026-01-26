@@ -2614,18 +2614,21 @@ function startRoundTimer() {
 
       if (state.animation.checkWin) {
 
-        // Determine winner based on which team you are
-        const myTeamIsCT = (state.currentTeam === "CT");
-
-        if (myTeamIsCT) {
-  state.score.CT++;
-  updateScoreDisplay();
-  alert("Your team wins!");
-} else {
-  state.score.T++;
-  updateScoreDisplay();
-  alert("Enemy team wins!");
-}
+        // ---------------------------------------------
+        // FIXED LOGIC:
+        // Timeout ALWAYS means CT wins the round
+        // ---------------------------------------------
+        if (state.currentTeam === "CT") {
+          // You are CT → your team wins
+          state.score.CT++;
+          updateScoreDisplay();
+          alert("Your team wins!");
+        } else {
+          // You are T → CT wins
+          state.score.CT++;
+          updateScoreDisplay();
+          alert("Enemy team wins!");
+        }
 
         // Stop animation
         state.animation.running = false;
