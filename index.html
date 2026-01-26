@@ -1865,11 +1865,13 @@ function addUtilityToAnimation(path) {
 function animationLoop(timestamp) {
   if (!state.animation.running) return;
 
+  // Pause handling
   if (state.paused) {
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
     return;
   }
 
+  // Time delta
   if (state.animation.lastTime == null) {
     state.animation.lastTime = timestamp;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
@@ -1890,6 +1892,35 @@ function animationLoop(timestamp) {
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
     if (!p.alive) return;
+
+    // -------------------------------------------------------
+    // AI MOVEMENT (only in Simulate with Enemy)
+    // -------------------------------------------------------
+    if (state.animation.checkWin && p.paths.length === 0) {
+      const enemies = state.animation.players.filter(
+        t => t.alive && t.isEnemy !== p.isEnemy
+      );
+
+      const move = getAIMove(p, enemies);
+      if (move) {
+        p.x = move.x;
+        p.y = move.y;
+      }
+
+      // AI players are never "done"
+      allPlayersDone = false;
+
+      if (p.el) {
+        p.el.style.left = p.x + 'px';
+        p.el.style.top = p.y + 'px';
+      }
+
+      return; // Skip normal path logic
+    }
+
+    // -------------------------------------------------------
+    // NORMAL PATH ANIMATION
+    // -------------------------------------------------------
     if (p.done || p.paths.length === 0) return;
 
     let remaining = dt;
@@ -1897,7 +1928,12 @@ function animationLoop(timestamp) {
     while (remaining > 0 && !p.done) {
       const path = p.paths[p.currentPathIndex];
       if (!path) {
-        p.done = true;
+        // End of all paths
+        if (state.animation.checkWin) {
+          p.done = false; // AI mode → never done
+        } else {
+          p.done = true;
+        }
         break;
       }
 
@@ -1961,7 +1997,11 @@ function animationLoop(timestamp) {
         p.currentPathIndex++;
 
         if (p.currentPathIndex >= p.paths.length) {
-          p.done = true;
+          if (state.animation.checkWin) {
+            p.done = false;
+          } else {
+            p.done = true;
+          }
         }
 
         remaining = 0;
@@ -1985,7 +2025,11 @@ function animationLoop(timestamp) {
 
         p.currentPathIndex++;
         if (p.currentPathIndex >= p.paths.length) {
-          p.done = true;
+          if (state.animation.checkWin) {
+            p.done = false;
+          } else {
+            p.done = true;
+          }
         }
 
         remaining = 0;
@@ -2000,7 +2044,11 @@ function animationLoop(timestamp) {
           p.distanceOnSegment = 0;
 
           if (p.currentPathIndex >= p.paths.length) {
-            p.done = true;
+            if (state.animation.checkWin) {
+              p.done = false;
+            } else {
+              p.done = true;
+            }
             break;
           }
           continue;
@@ -2027,7 +2075,11 @@ function animationLoop(timestamp) {
             p.distanceOnSegment = 0;
 
             if (p.currentPathIndex >= p.paths.length) {
-              p.done = true;
+              if (state.animation.checkWin) {
+                p.done = false;
+              } else {
+                p.done = true;
+              }
               break;
             }
           }
@@ -2042,30 +2094,18 @@ function animationLoop(timestamp) {
         continue;
       }
 
+      // Unknown path type → skip
       p.currentPathIndex++;
-      if (p.currentPathIndex >= p.paths.length) {
-        p.done = true;
-        break;
-      }
     }
 
-/* -------------------------------------------------------
-   AI MOVEMENT ONLY IN "Simulate (with Enemy)"
-------------------------------------------------------- */
-if (state.animation.checkWin && p.paths.length === 0 && !p.done && p.alive) {
-  const enemies = state.animation.players.filter(
-    t => t.alive && t.isEnemy !== p.isEnemy
-  );
+    // Player still active?
+    if (state.animation.checkWin) {
+      if (p.alive) allPlayersDone = false;
+    } else {
+      if (!p.done && p.alive) allPlayersDone = false;
+    }
 
-  const move = getAIMove(p, enemies);
-  if (move) {
-    p.x = move.x;
-    p.y = move.y;
-  }
-}
-
-    if (!p.done && p.alive) allPlayersDone = false;
-
+    // Update DOM
     if (p.el) {
       p.el.style.left = p.x + 'px';
       p.el.style.top = p.y + 'px';
@@ -2102,7 +2142,7 @@ if (state.animation.checkWin && p.paths.length === 0 && !p.done && p.alive) {
   }
 
   /* -------------------------------------------------------
-     MOLOTOV DAMAGE (40 HP / Sekunde)
+     MOLOTOV DAMAGE
   ------------------------------------------------------- */
   while (state.animation.molotovAccumulator >= 1.0) {
     state.animation.molotovAccumulator -= 1.0;
@@ -2130,31 +2170,33 @@ if (state.animation.checkWin && p.paths.length === 0 && !p.done && p.alive) {
   });
 
   /* -------------------------------------------------------
-     WIN CHECK
+     WIN CHECK (only in Simulate with Enemy)
   ------------------------------------------------------- */
   if (state.animation.checkWin) {
-  if (checkWinCondition()) {
-    state.animation.running = false;
-    state.animation.frameRequest = null;
+    if (checkWinCondition()) {
+      state.animation.running = false;
+      state.animation.frameRequest = null;
 
-    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-    return;
+      return;
+    }
   }
-}
 
   /* -------------------------------------------------------
-     FINISHED?
+     END CONDITION (ONLY for normal Simulate)
   ------------------------------------------------------- */
-  if (allPlayersDone && state.animation.grenades.length === 0) {
-    state.animation.running = false;
-    state.animation.frameRequest = null;
+  if (!state.animation.checkWin) {
+    if (allPlayersDone && state.animation.grenades.length === 0) {
+      state.animation.running = false;
+      state.animation.frameRequest = null;
 
-    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-    return;
+      return;
+    }
   }
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
