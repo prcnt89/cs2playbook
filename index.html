@@ -346,38 +346,36 @@ body {
           </div>
 
           <!-- Round Time + Play/Stop Menü -->
-<div style="margin-top:12px;">
+          <div style="margin-top:12px;">
 
-  <!-- MATCHINFOS als eigenes Menü -->
-  <div class="menu" style="text-align:center;">
-    <h3>Matchinfos</h3>
+            <!-- Round Time Anzeige -->
+            <div class="play-menu" style="margin-bottom:10px;">
+              <div style="font-size:14px; margin-bottom:6px;">Round time:</div>
+              <div id="roundTimeDisplay" style="
+                font-size:18px;
+                font-weight:bold;
+                margin-bottom:10px;
+                text-align:center;
+              ">1:55</div>
 
-    <div style="font-size:14px; margin-bottom:6px;">Round time:</div>
-    <div id="roundTimeDisplay" style="
-      font-size:18px;
-      font-weight:bold;
-      margin-bottom:10px;
-      text-align:center;
-    ">1:55</div>
+              <div style="font-size:14px; margin:10px 0 6px 0;">Duration:</div>
+              <div id="durationDisplay" style="
+                font-size:18px;
+                font-weight:bold;
+                margin-bottom:10px;
+                text-align:center;
+              ">0:00</div>
+            </div>
 
-    <div style="font-size:14px; margin:10px 0 6px 0;">Duration:</div>
-    <div id="durationDisplay" style="
-      font-size:18px;
-      font-weight:bold;
-      margin-bottom:10px;
-      text-align:center;
-    ">0:00</div>
-  </div>
+            <!-- Play/Stop Menü -->
+            <div class="play-menu">
+              <button id="btnPlay">Simulate</button>
+              <button id="btnPlayVs">Simulate (with Enemy)</button>
+              <button id="btnPause">Pause / Continue</button>
+              <button id="btnStop">Reset</button>
+            </div>
 
-  <!-- Play/Stop Menü -->
-  <div class="play-menu">
-    <button id="btnPlay">Simulate</button>
-    <button id="btnPlayVs">Simulate (with Enemy)</button>
-    <button id="btnPause">Pause / Continue</button>
-    <button id="btnStop">Reset</button>
-  </div>
-
-</div>
+          </div>
 
         </div>
 
@@ -571,42 +569,7 @@ function buildWalkabilityGrid() {
       const px = Math.floor(x * CELL_SIZE);
       const py = Math.floor(y * CELL_SIZE);
       const brightness = getMaskBrightness(px, py);
-
-      // 0 = wall, 1 = walkable
-      walkGrid[y][x] = brightness > 30 ? 1 : 0;
-    }
-  }
-
-  // -------------------------------------------------------
-  // WALL PADDING (COST INCREASE INSTEAD OF BLOCKING)
-  // -------------------------------------------------------
-  const padding = 2; // 2 grid cells ≈ 10px Abstand
-
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-
-      if (walkGrid[y][x] === 0) continue; // wall stays wall
-
-      let nearWall = false;
-
-      for (let dy = -padding; dy <= padding; dy++) {
-        for (let dx = -padding; dx <= padding; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-
-          if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
-
-          if (walkGrid[ny][nx] === 0) {
-            nearWall = true;
-            break;
-          }
-        }
-        if (nearWall) break;
-      }
-
-      if (nearWall) {
-        walkGrid[y][x] = 5; // expensive but walkable
-      }
+      walkGrid[y][x] = brightness > 30 ? 1 : 0; // 1 = walkable, 0 = wall
     }
   }
 }
@@ -680,8 +643,7 @@ function findPathAStar(start, goal) {
       const nk = hash(nx, ny);
       if (closed.has(nk)) continue;
 
-      const cellCost = walkGrid[ny][nx] === 5 ? 4 : 1; 
-const tentative = (gScore[ck] ?? Infinity) + Math.hypot(dx,dy) * cellCost;
+      const tentative = (gScore[ck] ?? Infinity) + Math.hypot(dx,dy);
 
       if (!(nk in gScore) || tentative < gScore[nk]) {
         cameFrom[nk] = ck;
