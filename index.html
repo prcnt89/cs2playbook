@@ -346,40 +346,43 @@ body {
           </div>
 
           <!-- Round Time + Play/Stop Menü -->
-          <div style="margin-top:12px;">
+<div style="margin-top:12px;">
 
-            <!-- Round Time Anzeige -->
-            <div class="play-menu" style="margin-bottom:10px;">
-              <div style="font-size:14px; margin-bottom:6px;">Round time:</div>
-              <div id="roundTimeDisplay" style="
-                font-size:18px;
-                font-weight:bold;
-                margin-bottom:10px;
-                text-align:center;
-              ">1:55</div>
+  <!-- MATCHINFOS als eigenes Menü -->
+<div class="menu" style="text-align:center;">
+  <h3>Matchinfos</h3>
 
-              <div style="font-size:14px; margin:10px 0 6px 0;">Duration:</div>
-              <div id="durationDisplay" style="
-                font-size:18px;
-                font-weight:bold;
-                margin-bottom:10px;
-                text-align:center;
-              ">0:00</div>
-            </div>
+  <div style="font-size:14px; margin-bottom:6px;">Round time:</div>
+  <div id="roundTimeDisplay" style="
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:10px;
+    text-align:center;
+  ">1:55</div>
 
-<div style="font-size:14px; margin:10px 0 6px 0; text-align:center;">Score:</div>
-<div id="scoreDisplay" style="
-  font-size:18px;
-  font-weight:bold;
-  margin-bottom:10px;
-  text-align:center;
-  display:flex;
-  justify-content:center;
-  gap:6px;
-">
-  <span id="scoreT" style="color:#f9a03f;">0</span>
-  :
-  <span id="scoreCT" style="color:#4fa3ff;">0</span>
+  <div style="font-size:14px; margin:10px 0 6px 0;">Duration:</div>
+  <div id="durationDisplay" style="
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:10px;
+    text-align:center;
+  ">0:00</div>
+
+  <!-- Score jetzt im gleichen Kasten -->
+  <div style="font-size:14px; margin:10px 0 6px 0;">Score:</div>
+  <div id="scoreDisplay" style="
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:10px;
+    text-align:center;
+    display:flex;
+    justify-content:center;
+    gap:6px;
+  ">
+    <span id="scoreT" style="color:#f9a03f;">0</span>
+    :
+    <span id="scoreCT" style="color:#4fa3ff;">0</span>
+  </div>
 </div>
 
             <!-- Play/Stop Menü -->
