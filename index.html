@@ -2242,15 +2242,37 @@ if (state.animation.checkWin && p.done && p.alive) {
   /* -------------------------------------------------------
      FINISHED?
   ------------------------------------------------------- */
-  if (allPlayersDone && state.animation.grenades.length === 0) {
-    state.animation.running = false;
-    state.animation.frameRequest = null;
+  // STOP ONLY IN NORMAL SIMULATION (NOT VS ENEMY)
+if (!state.animation.checkWin) {
+    if (allPlayersDone && state.animation.grenades.length === 0) {
+        state.animation.running = false;
+        state.animation.frameRequest = null;
 
-    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+        if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+        if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-    return;
-  }
+        return;
+    }
+}
+
+// IN VS-ENEMY MODE: NEVER STOP UNTIL WINNER IS FOUND
+if (state.animation.checkWin) {
+    const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
+    const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
+
+    if (aliveMyTeam.length === 0 || aliveEnemyTeam.length === 0) {
+        // winner found → stop
+        state.animation.running = false;
+        state.animation.frameRequest = null;
+
+        if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+        if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+
+        return;
+    }
+
+    // otherwise: continue animation (auto-rush will kick in)
+}
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
 }
