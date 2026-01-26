@@ -551,68 +551,113 @@ function hasLineOfSight(x1, y1, x2, y2) {
 }
 
 /* -------------------------------------------------------
-   AI MOVEMENT (Random Walk Toward Enemy)
+   PATHFINDING GRID (166×166) + A*
 ------------------------------------------------------- */
 
-function getAIMove(player, enemies) {
-  if (enemies.length === 0) return null;
+const GRID_SIZE = 166;          // 166×166 grid
+const CELL_SIZE = 830 / GRID_SIZE; // ≈ 5px per cell
+let walkGrid = null;
 
-  // Find nearest enemy
-  let target = null;
-  let bestDist = Infinity;
+// Build walkability grid from mask
+function buildWalkabilityGrid() {
+  if (!maskImageData) return;
 
-  enemies.forEach(e => {
-    const dx = e.x - player.x;
-    const dy = e.y - player.y;
-    const dist = dx*dx + dy*dy;
-    if (dist < bestDist) {
-      bestDist = dist;
-      target = e;
+  walkGrid = new Array(GRID_SIZE);
+  for (let y = 0; y < GRID_SIZE; y++) {
+    walkGrid[y] = new Array(GRID_SIZE);
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const px = Math.floor(x * CELL_SIZE);
+      const py = Math.floor(y * CELL_SIZE);
+      const brightness = getMaskBrightness(px, py);
+      walkGrid[y][x] = brightness > 30 ? 1 : 0; // 1 = walkable, 0 = wall
     }
-  });
+  }
+}
 
-  if (!target) return null;
+// Convert world → grid
+function worldToGrid(x, y) {
+  return {
+    gx: Math.floor(x / CELL_SIZE),
+    gy: Math.floor(y / CELL_SIZE)
+  };
+}
 
-  // Base direction toward enemy
-  let dx = target.x - player.x;
-  let dy = target.y - player.y;
-  const len = Math.sqrt(dx*dx + dy*dy);
-  if (len === 0) return null;
+// Convert grid → world
+function gridToWorld(gx, gy) {
+  return {
+    x: gx * CELL_SIZE + CELL_SIZE / 2,
+    y: gy * CELL_SIZE + CELL_SIZE / 2
+  };
+}
 
-  dx /= len;
-  dy /= len;
+// A* pathfinding
+function findPathAStar(start, goal) {
+  if (!walkGrid) return null;
 
-  // Add random deviation
-  dx += (Math.random() - 0.5) * 0.6;
-  dy += (Math.random() - 0.5) * 0.6;
+  const open = [];
+  const closed = new Set();
+  const cameFrom = {};
 
-  // Normalize again
-  const len2 = Math.sqrt(dx*dx + dy*dy);
-  dx /= len2;
-  dy /= len2;
+  function hash(x, y) { return x + "," + y; }
 
-  // Step size (AI speed)
-  const step = 12;
+  const gScore = {};
+  const fScore = {};
 
-  const newX = player.x + dx * step;
-  const newY = player.y + dy * step;
+  const startKey = hash(start.gx, start.gy);
+  gScore[startKey] = 0;
+  fScore[startKey] = 0;
 
-  // Check mask: only walk on white areas
-  const brightness = getMaskBrightness(newX, newY);
-  if (brightness < 80) {
-    // Try small random sidestep
-    const sideX = player.x + (Math.random() - 0.5) * 30;
-    const sideY = player.y + (Math.random() - 0.5) * 30;
+  open.push({ gx: start.gx, gy: start.gy, f: 0 });
 
-    const b2 = getMaskBrightness(sideX, sideY);
-    if (b2 >= 80) {
-      return { x: sideX, y: sideY };
+  const dirs = [
+    [1,0],[-1,0],[0,1],[0,-1],
+    [1,1],[1,-1],[-1,1],[-1,-1]
+  ];
+
+  while (open.length > 0) {
+    open.sort((a,b)=>a.f-b.f);
+    const current = open.shift();
+    const ck = hash(current.gx, current.gy);
+
+    if (current.gx === goal.gx && current.gy === goal.gy) {
+      const path = [];
+      let k = ck;
+      while (k in cameFrom) {
+        const [x,y] = k.split(",").map(Number);
+        path.push(gridToWorld(x,y));
+        k = cameFrom[k];
+      }
+      path.reverse();
+      return path;
     }
 
-    return null;
+    closed.add(ck);
+
+    for (const [dx,dy] of dirs) {
+      const nx = current.gx + dx;
+      const ny = current.gy + dy;
+
+      if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
+      if (walkGrid[ny][nx] === 0) continue;
+
+      const nk = hash(nx, ny);
+      if (closed.has(nk)) continue;
+
+      const tentative = (gScore[ck] ?? Infinity) + Math.hypot(dx,dy);
+
+      if (!(nk in gScore) || tentative < gScore[nk]) {
+        cameFrom[nk] = ck;
+        gScore[nk] = tentative;
+        fScore[nk] = tentative + Math.hypot(goal.gx - nx, goal.gy - ny);
+
+        if (!open.some(n => n.gx === nx && n.gy === ny)) {
+          open.push({ gx:nx, gy:ny, f:fScore[nk] });
+        }
+      }
+    }
   }
 
-  return { x: newX, y: newY };
+  return null;
 }
 
 function isInsideSmoke(x, y) {
@@ -1691,6 +1736,64 @@ function buildAnimationState() {
   return animPlayers;
 }
 
+/* -------------------------------------------------------
+   AUTO-RUSH FOR PLAYERS WITH NO ACTIONS
+------------------------------------------------------- */
+
+function autoRushIfNoActions(player, enemies) {
+  if (!player.alive) return;
+  if (player.paths.length > 0) return; // player already has actions
+
+  if (enemies.length === 0) return;
+
+  // find nearest enemy
+  let nearest = null;
+  let bestDist = Infinity;
+  enemies.forEach(e => {
+    if (!e.alive) return;
+    const dx = e.x - player.x;
+    const dy = e.y - player.y;
+    const d = dx*dx + dy*dy;
+    if (d < bestDist) {
+      bestDist = d;
+      nearest = e;
+    }
+  });
+
+  if (!nearest) return;
+
+  // convert to grid coords
+  const start = worldToGrid(player.x, player.y);
+  const goal = worldToGrid(nearest.x, nearest.y);
+
+  const path = findPathAStar(start, goal);
+  if (!path || path.length < 2) return;
+
+  // convert path to Rush segments
+  const rushPath = {
+    type: "Rush",
+    segments: [],
+    totalLength: 0,
+    speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
+  };
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i+1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    rushPath.segments.push({ from:a, to:b, length:len });
+    rushPath.totalLength += len;
+  }
+
+  // attach to animation player
+  player.paths.push(rushPath);
+  player.currentPathIndex = player.paths.length - 1;
+  player.currentSegmentIndex = 0;
+  player.distanceOnSegment = 0;
+}
+
 function buildEnemyAnimationState(enemyPlayers) {
   const animPlayers = [];
 
@@ -1865,13 +1968,11 @@ function addUtilityToAnimation(path) {
 function animationLoop(timestamp) {
   if (!state.animation.running) return;
 
-  // Pause handling
   if (state.paused) {
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
     return;
   }
 
-  // Time delta
   if (state.animation.lastTime == null) {
     state.animation.lastTime = timestamp;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
@@ -1892,35 +1993,6 @@ function animationLoop(timestamp) {
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
     if (!p.alive) return;
-
-    /* -------------------------------------------------------
-       AI MOVEMENT (ONLY in Simulate with Enemy)
-    ------------------------------------------------------- */
-    if (state.animation.checkWin && p.paths.length === 0) {
-      const enemies = state.animation.players.filter(
-        t => t.alive && t.isEnemy !== p.isEnemy
-      );
-
-      const move = getAIMove(p, enemies);
-      if (move) {
-        p.x = move.x;
-        p.y = move.y;
-      }
-
-      // AI players are never done
-      allPlayersDone = false;
-
-      if (p.el) {
-        p.el.style.left = p.x + 'px';
-        p.el.style.top = p.y + 'px';
-      }
-
-      return; // Skip normal path logic
-    }
-
-    /* -------------------------------------------------------
-       NORMAL PATH ANIMATION
-    ------------------------------------------------------- */
     if (p.done || p.paths.length === 0) return;
 
     let remaining = dt;
@@ -1928,12 +2000,7 @@ function animationLoop(timestamp) {
     while (remaining > 0 && !p.done) {
       const path = p.paths[p.currentPathIndex];
       if (!path) {
-        // End of all paths
-        if (!state.animation.checkWin) {
-          p.done = true;
-        } else {
-          p.done = false;
-        }
+        p.done = true;
         break;
       }
 
@@ -1997,11 +2064,7 @@ function animationLoop(timestamp) {
         p.currentPathIndex++;
 
         if (p.currentPathIndex >= p.paths.length) {
-          if (!state.animation.checkWin) {
-            p.done = true;
-          } else {
-            p.done = false;
-          }
+          p.done = true;
         }
 
         remaining = 0;
@@ -2025,11 +2088,7 @@ function animationLoop(timestamp) {
 
         p.currentPathIndex++;
         if (p.currentPathIndex >= p.paths.length) {
-          if (!state.animation.checkWin) {
-            p.done = true;
-          } else {
-            p.done = false;
-          }
+          p.done = true;
         }
 
         remaining = 0;
@@ -2044,11 +2103,7 @@ function animationLoop(timestamp) {
           p.distanceOnSegment = 0;
 
           if (p.currentPathIndex >= p.paths.length) {
-            if (!state.animation.checkWin) {
-              p.done = true;
-            } else {
-              p.done = false;
-            }
+            p.done = true;
             break;
           }
           continue;
@@ -2075,11 +2130,7 @@ function animationLoop(timestamp) {
             p.distanceOnSegment = 0;
 
             if (p.currentPathIndex >= p.paths.length) {
-              if (!state.animation.checkWin) {
-                p.done = true;
-              } else {
-                p.done = false;
-              }
+              p.done = true;
               break;
             }
           }
@@ -2094,18 +2145,22 @@ function animationLoop(timestamp) {
         continue;
       }
 
-      // Unknown path type → skip
       p.currentPathIndex++;
+      if (p.currentPathIndex >= p.paths.length) {
+        p.done = true;
+        break;
+      }
     }
 
-    // Player still active?
-    if (state.animation.checkWin) {
-      if (p.alive) allPlayersDone = false;
-    } else {
-      if (!p.done && p.alive) allPlayersDone = false;
-    }
+    if (!p.done && p.alive) allPlayersDone = false;
 
-    // Update DOM
+// AUTO-RUSH ONLY IN "Simulate (with Enemy)"
+if (state.animation.checkWin && p.done && p.alive) {
+  const enemies = state.animation.players.filter(e => e.isEnemy !== p.isEnemy && e.alive);
+  autoRushIfNoActions(p, enemies);
+  p.done = false; // allow new movement
+}
+
     if (p.el) {
       p.el.style.left = p.x + 'px';
       p.el.style.top = p.y + 'px';
@@ -2142,7 +2197,7 @@ function animationLoop(timestamp) {
   }
 
   /* -------------------------------------------------------
-     MOLOTOV DAMAGE
+     MOLOTOV DAMAGE (40 HP / Sekunde)
   ------------------------------------------------------- */
   while (state.animation.molotovAccumulator >= 1.0) {
     state.animation.molotovAccumulator -= 1.0;
@@ -2170,33 +2225,31 @@ function animationLoop(timestamp) {
   });
 
   /* -------------------------------------------------------
-     WIN CHECK (only in Simulate with Enemy)
+     WIN CHECK
   ------------------------------------------------------- */
   if (state.animation.checkWin) {
-    if (checkWinCondition()) {
-      state.animation.running = false;
-      state.animation.frameRequest = null;
+  if (checkWinCondition()) {
+    state.animation.running = false;
+    state.animation.frameRequest = null;
 
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-      return;
-    }
+    return;
   }
+}
 
   /* -------------------------------------------------------
-     END CONDITION (ONLY for normal Simulate)
+     FINISHED?
   ------------------------------------------------------- */
-  if (!state.animation.checkWin) {
-    if (allPlayersDone && state.animation.grenades.length === 0) {
-      state.animation.running = false;
-      state.animation.frameRequest = null;
+  if (allPlayersDone && state.animation.grenades.length === 0) {
+    state.animation.running = false;
+    state.animation.frameRequest = null;
 
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-      return;
-    }
+    return;
   }
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
@@ -2461,10 +2514,6 @@ function startDurationTimer() {
 btnPlay.addEventListener('click', () => {
   state.animation.checkWin = false;
 
-loadMaskForMap(state.currentMap, () => {
-  // continue existing code
-});
-
   stopAnimation();
   resetRoundTimer();
 
@@ -2503,6 +2552,7 @@ btnPlayVs.addEventListener('click', () => {
 
   // Mask für aktuelle Map laden, dann erst starten
   loadMaskForMap(map, () => {
+buildWalkabilityGrid();
     // Random enemy tactic
     const randomName = enemyTactics[Math.floor(Math.random() * enemyTactics.length)];
     const randomTactic = enemyTab.savedTactics[randomName];
