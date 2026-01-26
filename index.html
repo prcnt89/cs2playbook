@@ -383,6 +383,19 @@ body {
     :
     <span id="scoreCT" style="color:#4fa3ff;">0</span>
   </div>
+
+<div id="tacticInfoDisplay" style="
+    font-size:14px;
+    margin-top:10px;
+    white-space:pre-line;
+    text-align:left;
+">
+Your tactic:
+<span id="yourTacticName"></span>
+
+Enemy tactic:
+<span id="enemyTacticName"></span>
+</div>
 </div>
 
             <!-- Play/Stop Menü -->
@@ -1290,6 +1303,20 @@ tab.players.forEach(player => {
   });
 }
 
+function updateTacticInfoDisplay() {
+  const map = state.currentMap;
+
+  // Eigene Taktik
+  const myTab = state.tabs[map][state.currentTeam];
+  const myName = myTab.currentTacticName || "(no tactic selected)";
+
+  // Gegnerische Taktik (nur bei PlayVs gesetzt)
+  let enemyName = state.lastEnemyTacticName || "";
+
+  document.getElementById("yourTacticName").textContent = myName;
+  document.getElementById("enemyTacticName").textContent = enemyName;
+}
+
 /* -------------------------------------------------------
    NOTES
 ------------------------------------------------------- */
@@ -1629,6 +1656,7 @@ tab.stats = tactic.stats || { wins: 0, losses: 0 };
   tab.currentTacticName = name;
   pushHistorySnapshot(state.currentMap, state.currentTeam);
   renderCurrentTab();
+  updateTacticInfoDisplay();
 }
 
 function deleteCurrentTactic() {
@@ -2609,6 +2637,9 @@ btnPlay.addEventListener('click', () => {
   stopAnimation();
   resetRoundTimer();
 
+state.lastEnemyTacticName = "";
+updateTacticInfoDisplay();
+
   // Both timers with pre‑countdown
   startPreCountdown(() => {
     startAnimation();
@@ -2647,6 +2678,8 @@ btnPlayVs.addEventListener('click', () => {
 buildWalkabilityGrid();
     // Random enemy tactic
     const randomName = enemyTactics[Math.floor(Math.random() * enemyTactics.length)];
+state.lastEnemyTacticName = randomName;
+updateTacticInfoDisplay();
     const randomTactic = enemyTab.savedTactics[randomName];
 
     // Build animation state for both teams
