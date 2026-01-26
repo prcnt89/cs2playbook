@@ -1973,11 +1973,13 @@ function addUtilityToAnimation(path) {
 function animationLoop(timestamp) {
   if (!state.animation.running) return;
 
+  // Pause handling
   if (state.paused) {
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
     return;
   }
 
+  // Initial timestamp
   if (state.animation.lastTime == null) {
     state.animation.lastTime = timestamp;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
@@ -2159,18 +2161,23 @@ function animationLoop(timestamp) {
 
     if (!p.done && p.alive) allPlayersDone = false;
 
-// AUTO-RUSH ONLY IN "Simulate (with Enemy)"
-if (state.animation.checkWin && p.done && p.alive) {
-  const enemies = state.animation.players.filter(e => e.isEnemy !== p.isEnemy && e.alive);
-  autoRushIfNoActions(p, enemies);
-  p.done = false; // allow new movement
-}
-
     if (p.el) {
       p.el.style.left = p.x + 'px';
       p.el.style.top = p.y + 'px';
     }
   });
+
+  /* -------------------------------------------------------
+     AUTO-RUSH (VS ENEMY ONLY)
+  ------------------------------------------------------- */
+  if (state.animation.checkWin) {
+    state.animation.players.forEach(p => {
+      if (p.done && p.alive) {
+        const enemies = state.animation.players.filter(e => e.isEnemy !== p.isEnemy && e.alive);
+        autoRushIfNoActions(p, enemies);
+      }
+    });
+  }
 
   /* -------------------------------------------------------
      ANIMATE UTILITIES
@@ -2202,7 +2209,7 @@ if (state.animation.checkWin && p.done && p.alive) {
   }
 
   /* -------------------------------------------------------
-     MOLOTOV DAMAGE (40 HP / Sekunde)
+     MOLOTOV DAMAGE
   ------------------------------------------------------- */
   while (state.animation.molotovAccumulator >= 1.0) {
     state.animation.molotovAccumulator -= 1.0;
@@ -2230,54 +2237,40 @@ if (state.animation.checkWin && p.done && p.alive) {
   });
 
   /* -------------------------------------------------------
-     WIN CHECK
+     WIN CHECK (VS ENEMY ONLY)
   ------------------------------------------------------- */
   if (state.animation.checkWin) {
-  if (checkWinCondition()) {
-    state.animation.running = false;
-    state.animation.frameRequest = null;
 
-    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+    // Time-out handled in startRoundTimer()
+    if (state.roundTimer.remaining <= 0) {
+      return;
+    }
 
-    return;
+    if (checkWinCondition()) {
+      state.animation.running = false;
+      state.animation.frameRequest = null;
+
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+
+      return;
+    }
   }
-}
 
   /* -------------------------------------------------------
-     FINISHED?
+     STOP CONDITION (NORMAL SIMULATE ONLY)
   ------------------------------------------------------- */
-  // STOP ONLY IN NORMAL SIMULATION (NOT VS ENEMY)
-if (!state.animation.checkWin) {
+  if (!state.animation.checkWin) {
     if (allPlayersDone && state.animation.grenades.length === 0) {
-        state.animation.running = false;
-        state.animation.frameRequest = null;
+      state.animation.running = false;
+      state.animation.frameRequest = null;
 
-        if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-        if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-        return;
+      return;
     }
-}
-
-// IN VS-ENEMY MODE: NEVER STOP UNTIL WINNER IS FOUND
-if (state.animation.checkWin) {
-    const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
-    const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
-
-    if (aliveMyTeam.length === 0 || aliveEnemyTeam.length === 0) {
-        // winner found → stop
-        state.animation.running = false;
-        state.animation.frameRequest = null;
-
-        if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-        if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
-
-        return;
-    }
-
-    // otherwise: continue animation (auto-rush will kick in)
-}
+  }
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
 }
@@ -2496,10 +2489,38 @@ function startRoundTimer() {
 
     roundTimeDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
+    // ---------------------------------------------
+    // NEW: Time-out only matters in VS-Enemy mode
+    // ---------------------------------------------
     if (totalSeconds <= 0) {
+
+      // Stop timer
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
+
+      // Only in Simulate (with Enemy)
+      if (state.animation.checkWin) {
+        alert("Time is up! Counter‑Terrorists win!");
+        
+        // Stop animation completely
+        state.animation.running = false;
+        if (state.animation.frameRequest) {
+          cancelAnimationFrame(state.animation.frameRequest);
+          state.animation.frameRequest = null;
+        }
+
+        // Stop duration timer
+        if (state.durationTimer.interval) {
+          clearInterval(state.durationTimer.interval);
+          state.durationTimer.interval = null;
+        }
+
+        return;
+      }
+
+      // In normal Simulate: do nothing special
     }
+
   }, 830);
 }
 
