@@ -1742,7 +1742,9 @@ function buildAnimationState() {
 
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
-  if (player.paths.length > 0) return; // player already has actions
+
+  // Only trigger if player has finished all previous actions
+  if (!player.done) return;
 
   if (enemies.length === 0) return;
 
@@ -1789,9 +1791,12 @@ function autoRushIfNoActions(player, enemies) {
 
   // attach to animation player
   player.paths.push(rushPath);
+
+  // reset animation indices
   player.currentPathIndex = player.paths.length - 1;
   player.currentSegmentIndex = 0;
   player.distanceOnSegment = 0;
+  player.done = false;
 }
 
 function buildEnemyAnimationState(enemyPlayers) {
