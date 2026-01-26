@@ -598,12 +598,39 @@ function buildWalkabilityGrid() {
   for (let y = 0; y < GRID_SIZE; y++) {
     walkGrid[y] = new Array(GRID_SIZE);
     for (let x = 0; x < GRID_SIZE; x++) {
+
       const px = Math.floor(x * CELL_SIZE);
       const py = Math.floor(y * CELL_SIZE);
       const brightness = getMaskBrightness(px, py);
-      walkGrid[y][x] = brightness > 30 ? 1 : 0; // 1 = walkable, 0 = wall
+
+      // 1 = walkable, 0 = wall
+      walkGrid[y][x] = brightness > 30 ? 1 : 0;
     }
   }
+
+  // -----------------------------------------
+  // WALL PADDING (3 cells thick)
+  // -----------------------------------------
+  const PAD = 3;
+  const padded = JSON.parse(JSON.stringify(walkGrid));
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      if (walkGrid[y][x] === 0) {
+        for (let dy = -PAD; dy <= PAD; dy++) {
+          for (let dx = -PAD; dx <= PAD; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && ny >= 0 && nx < GRID_SIZE && ny < GRID_SIZE) {
+              padded[ny][nx] = 0;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  walkGrid = padded;
 }
 
 // Convert world → grid
@@ -641,9 +668,11 @@ function findPathAStar(start, goal) {
 
   open.push({ gx: start.gx, gy: start.gy, f: 0 });
 
+  // -----------------------------------------
+  // NO DIAGONALS → prevents corner cutting
+  // -----------------------------------------
   const dirs = [
-    [1,0],[-1,0],[0,1],[0,-1],
-    [1,1],[1,-1],[-1,1],[-1,-1]
+    [1,0],[-1,0],[0,1],[0,-1]
   ];
 
   while (open.length > 0) {
@@ -675,12 +704,12 @@ function findPathAStar(start, goal) {
       const nk = hash(nx, ny);
       if (closed.has(nk)) continue;
 
-      const tentative = (gScore[ck] ?? Infinity) + Math.hypot(dx,dy);
+      const tentative = (gScore[ck] ?? Infinity) + 1;
 
       if (!(nk in gScore) || tentative < gScore[nk]) {
         cameFrom[nk] = ck;
         gScore[nk] = tentative;
-        fScore[nk] = tentative + Math.hypot(goal.gx - nx, goal.gy - ny);
+        fScore[nk] = tentative + Math.abs(goal.gx - nx) + Math.abs(goal.gy - ny);
 
         if (!open.some(n => n.gx === nx && n.gy === ny)) {
           open.push({ gx:nx, gy:ny, f:fScore[nk] });
@@ -1795,15 +1824,12 @@ function buildAnimationState() {
 
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
-
-  // Only trigger if player has finished all previous actions
   if (!player.done) return;
-
   if (enemies.length === 0) return;
 
-  // find nearest enemy
   let nearest = null;
   let bestDist = Infinity;
+
   enemies.forEach(e => {
     if (!e.alive) return;
     const dx = e.x - player.x;
@@ -1817,14 +1843,33 @@ function autoRushIfNoActions(player, enemies) {
 
   if (!nearest) return;
 
-  // convert to grid coords
   const start = worldToGrid(player.x, player.y);
   const goal = worldToGrid(nearest.x, nearest.y);
 
-  const path = findPathAStar(start, goal);
+  let path = findPathAStar(start, goal);
   if (!path || path.length < 2) return;
 
-  // convert path to Rush segments
+  // -----------------------------------------
+  // WALL COLLISION CHECK
+  // -----------------------------------------
+  function segmentHitsWall(a, b) {
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const g = worldToGrid(x, y);
+      if (walkGrid[g.gy][g.gx] === 0) return true;
+    }
+    return false;
+  }
+
+  for (let i = 0; i < path.length - 1; i++) {
+    if (segmentHitsWall(path[i], path[i+1])) {
+      return; // reject invalid path
+    }
+  }
+
   const rushPath = {
     type: "Rush",
     segments: [],
@@ -1842,10 +1887,7 @@ function autoRushIfNoActions(player, enemies) {
     rushPath.totalLength += len;
   }
 
-  // attach to animation player
   player.paths.push(rushPath);
-
-  // reset animation indices
   player.currentPathIndex = player.paths.length - 1;
   player.currentSegmentIndex = 0;
   player.distanceOnSegment = 0;
