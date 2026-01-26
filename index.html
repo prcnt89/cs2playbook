@@ -2237,25 +2237,25 @@ function animationLoop(timestamp) {
   });
 
   /* -------------------------------------------------------
-     WIN CHECK (VS ENEMY ONLY)
-  ------------------------------------------------------- */
-  if (state.animation.checkWin) {
+   WIN CHECK (VS ENEMY ONLY)
+------------------------------------------------------- */
+if (state.animation.checkWin) {
 
-    // Time-out handled in startRoundTimer()
-    if (state.roundTimer.remaining <= 0) {
-      return;
-    }
-
-    if (checkWinCondition()) {
-      state.animation.running = false;
-      state.animation.frameRequest = null;
-
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
-
-      return;
-    }
+  // If time already expired → winner already handled in startRoundTimer()
+  if (state.roundTimer.remaining <= 0) {
+    return;
   }
+
+  if (checkWinCondition()) {
+    state.animation.running = false;
+    state.animation.frameRequest = null;
+
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+
+    return;
+  }
+}
 
   /* -------------------------------------------------------
      STOP CONDITION (NORMAL SIMULATE ONLY)
@@ -2490,19 +2490,25 @@ function startRoundTimer() {
     roundTimeDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
     // ---------------------------------------------
-    // NEW: Time-out only matters in VS-Enemy mode
+    // TIMEOUT ONLY MATTERS IN VS-ENEMY MODE
     // ---------------------------------------------
     if (totalSeconds <= 0) {
 
-      // Stop timer
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
 
-      // Only in Simulate (with Enemy)
       if (state.animation.checkWin) {
-        alert("Time is up! Counter‑Terrorists win!");
-        
-        // Stop animation completely
+
+        // Determine winner based on which team you are
+        const myTeamIsCT = (state.currentTeam === "CT");
+
+        if (myTeamIsCT) {
+          alert("Your team wins!");
+        } else {
+          alert("Enemy team wins!");
+        }
+
+        // Stop animation
         state.animation.running = false;
         if (state.animation.frameRequest) {
           cancelAnimationFrame(state.animation.frameRequest);
