@@ -2122,7 +2122,7 @@ function checkWinCondition() {
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // Beide tot → Draw
+  // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     alert("Draw!");
     return true;
@@ -2130,15 +2130,13 @@ function checkWinCondition() {
 
   // Mein Team gewinnt
   if (aliveEnemyTeam.length === 0) {
-    const myTeam = state.currentTeam === "T" ? "Terrorists" : "Counter‑Terrorists";
-    alert(myTeam + " win!");
+    alert("Your team wins!");
     return true;
   }
 
   // Gegner gewinnt
   if (aliveMyTeam.length === 0) {
-    const enemyTeam = state.currentTeam === "T" ? "Counter‑Terrorists" : "Terrorists";
-    alert(enemyTeam + " win!");
+    alert("Enemy team wins!");
     return true;
   }
 
