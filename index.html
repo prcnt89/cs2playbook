@@ -603,15 +603,14 @@ function buildWalkabilityGrid() {
       const py = Math.floor(y * CELL_SIZE);
       const brightness = getMaskBrightness(px, py);
 
-      // 1 = walkable, 0 = wall
       walkGrid[y][x] = brightness > 30 ? 1 : 0;
     }
   }
 
   // -----------------------------------------
-  // WALL PADDING (3 cells thick)
+  // WALL PADDING (1 cell thick)
   // -----------------------------------------
-  const PAD = 3;
+  const PAD = 1;
   const padded = JSON.parse(JSON.stringify(walkGrid));
 
   for (let y = 0; y < GRID_SIZE; y++) {
@@ -669,10 +668,11 @@ function findPathAStar(start, goal) {
   open.push({ gx: start.gx, gy: start.gy, f: 0 });
 
   // -----------------------------------------
-  // NO DIAGONALS → prevents corner cutting
+  // Allow diagonals BUT prevent corner cutting
   // -----------------------------------------
   const dirs = [
-    [1,0],[-1,0],[0,1],[0,-1]
+    [1,0],[-1,0],[0,1],[0,-1],
+    [1,1],[1,-1],[-1,1],[-1,-1]
   ];
 
   while (open.length > 0) {
@@ -701,15 +701,21 @@ function findPathAStar(start, goal) {
       if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
       if (walkGrid[ny][nx] === 0) continue;
 
+      // Prevent diagonal corner cutting
+      if (dx !== 0 && dy !== 0) {
+        if (walkGrid[current.gy][current.gx + dx] === 0) continue;
+        if (walkGrid[current.gy + dy][current.gx] === 0) continue;
+      }
+
       const nk = hash(nx, ny);
       if (closed.has(nk)) continue;
 
-      const tentative = (gScore[ck] ?? Infinity) + 1;
+      const tentative = (gScore[ck] ?? Infinity) + Math.hypot(dx,dy);
 
       if (!(nk in gScore) || tentative < gScore[nk]) {
         cameFrom[nk] = ck;
         gScore[nk] = tentative;
-        fScore[nk] = tentative + Math.abs(goal.gx - nx) + Math.abs(goal.gy - ny);
+        fScore[nk] = tentative + Math.hypot(goal.gx - nx, goal.gy - ny);
 
         if (!open.some(n => n.gx === nx && n.gy === ny)) {
           open.push({ gx:nx, gy:ny, f:fScore[nk] });
@@ -1850,7 +1856,7 @@ function autoRushIfNoActions(player, enemies) {
   if (!path || path.length < 2) return;
 
   // -----------------------------------------
-  // WALL COLLISION CHECK
+  // FIX: Remove segments that hit walls
   // -----------------------------------------
   function segmentHitsWall(a, b) {
     const steps = 20;
@@ -1864,11 +1870,15 @@ function autoRushIfNoActions(player, enemies) {
     return false;
   }
 
+  const cleaned = [];
   for (let i = 0; i < path.length - 1; i++) {
-    if (segmentHitsWall(path[i], path[i+1])) {
-      return; // reject invalid path
+    if (!segmentHitsWall(path[i], path[i+1])) {
+      cleaned.push(path[i]);
     }
   }
+  cleaned.push(path[path.length - 1]);
+
+  if (cleaned.length < 2) return;
 
   const rushPath = {
     type: "Rush",
@@ -1877,9 +1887,9 @@ function autoRushIfNoActions(player, enemies) {
     speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
   };
 
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i];
-    const b = path[i+1];
+  for (let i = 0; i < cleaned.length - 1; i++) {
+    const a = cleaned[i];
+    const b = cleaned[i+1];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.sqrt(dx*dx + dy*dy);
