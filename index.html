@@ -2383,6 +2383,11 @@ if (state.animation.checkWin) {
 function performShootingStep() {
   const players = state.animation.players.filter(p => p.alive);
 
+  // -----------------------------------------
+  // 1. Treffer sammeln, aber NICHT anwenden
+  // -----------------------------------------
+  const hits = []; // { shooter, target }
+
   players.forEach(shooter => {
     const enemies = players.filter(
       t => t.alive && t.isEnemy !== shooter.isEnemy
@@ -2409,12 +2414,39 @@ function performShootingStep() {
 
     if (!target) return;
 
-    // Flash-Effekt: Trefferchance stark reduziert
     const hitChance = isFlashed(shooter) ? 0.10 : HIT_PROBABILITY;
 
     if (Math.random() < hitChance) {
-      target.hp -= DAMAGE_PER_HIT;
+      hits.push({ shooter, target });
     }
+  });
+
+  // -----------------------------------------
+  // 2. Gegenseitige Kills verhindern
+  // -----------------------------------------
+  const finalHits = [];
+
+  hits.forEach(hit => {
+    const reverse = hits.find(h =>
+      h.shooter === hit.target && h.target === hit.shooter
+    );
+
+    if (reverse) {
+      // Beide würden sich gegenseitig treffen → nur EIN Treffer zählt
+      // Wir nehmen den zuerst gefundenen
+      if (!finalHits.includes(reverse) && !finalHits.includes(hit)) {
+        finalHits.push(hit); 
+      }
+    } else {
+      finalHits.push(hit);
+    }
+  });
+
+  // -----------------------------------------
+  // 3. Treffer anwenden
+  // -----------------------------------------
+  finalHits.forEach(hit => {
+    hit.target.hp -= DAMAGE_PER_HIT;
   });
 }
 
