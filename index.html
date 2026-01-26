@@ -1617,7 +1617,7 @@ function buildAnimationState() {
       waitRemaining: null,
       done: false,
       el: null,
-      isEnemy: false,          // eigenes Team
+      team: state.currentTeam,
       hp: STARTING_HP,
       alive: true
     });
@@ -1721,7 +1721,7 @@ function buildEnemyAnimationState(enemyPlayers) {
       waitRemaining: null,
       done: false,
       el: null,
-      isEnemy: true,
+      team: enemyTeam,
       hp: STARTING_HP,
       alive: true
     });
@@ -2119,22 +2119,19 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveT = state.animation.players.filter(p => p.alive && !p.isEnemy);
-  const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const aliveT = state.animation.players.filter(p => p.alive && p.team === "T");
+  const aliveCT = state.animation.players.filter(p => p.alive && p.team === "CT");
 
-  // Beide tot → unentschieden
   if (aliveT.length === 0 && aliveCT.length === 0) {
     alert("Draw!");
     return true;
   }
 
-  // T gewinnt
   if (aliveCT.length === 0) {
     alert("Terrorists win!");
     return true;
   }
 
-  // CT gewinnt
   if (aliveT.length === 0) {
     alert("Counter‑Terrorists win!");
     return true;
