@@ -550,6 +550,71 @@ function hasLineOfSight(x1, y1, x2, y2) {
   return true;
 }
 
+/* -------------------------------------------------------
+   AI MOVEMENT (Random Walk Toward Enemy)
+------------------------------------------------------- */
+
+function getAIMove(player, enemies) {
+  if (enemies.length === 0) return null;
+
+  // Find nearest enemy
+  let target = null;
+  let bestDist = Infinity;
+
+  enemies.forEach(e => {
+    const dx = e.x - player.x;
+    const dy = e.y - player.y;
+    const dist = dx*dx + dy*dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      target = e;
+    }
+  });
+
+  if (!target) return null;
+
+  // Base direction toward enemy
+  let dx = target.x - player.x;
+  let dy = target.y - player.y;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len === 0) return null;
+
+  dx /= len;
+  dy /= len;
+
+  // Add random deviation
+  dx += (Math.random() - 0.5) * 0.6;
+  dy += (Math.random() - 0.5) * 0.6;
+
+  // Normalize again
+  const len2 = Math.sqrt(dx*dx + dy*dy);
+  dx /= len2;
+  dy /= len2;
+
+  // Step size (AI speed)
+  const step = 12;
+
+  const newX = player.x + dx * step;
+  const newY = player.y + dy * step;
+
+  // Check mask: only walk on white areas
+  const brightness = getMaskBrightness(newX, newY);
+  if (brightness < 80) {
+    // Try small random sidestep
+    const sideX = player.x + (Math.random() - 0.5) * 30;
+    const sideY = player.y + (Math.random() - 0.5) * 30;
+
+    const b2 = getMaskBrightness(sideX, sideY);
+    if (b2 >= 80) {
+      return { x: sideX, y: sideY };
+    }
+
+    return null;
+  }
+
+  return { x: newX, y: newY };
+}
+
 function isInsideSmoke(x, y) {
   const now = performance.now();
 
@@ -1935,16 +2000,9 @@ function animationLoop(timestamp) {
           p.distanceOnSegment = 0;
 
           if (p.currentPathIndex >= p.paths.length) {
-
-    // Im VS‑Modus sollen Spieler ohne Pfade weiterlaufen
-    if (state.animation.checkWin && p.paths.length === 0) {
-        p.done = false;
-    } else {
-        p.done = true;
-    }
-
-    break;
-}
+            p.done = true;
+            break;
+          }
           continue;
         }
 
@@ -1991,16 +2049,22 @@ function animationLoop(timestamp) {
       }
     }
 
-// ---------------------------------------------
-// AUTONOMES MOVEMENT (nur im VS‑Modus)
-// ---------------------------------------------
-if (state.animation.checkWin && p.paths.length === 0 && p.alive) {
-    const target = findClosestVisibleEnemy(p, state.animation.players);
-    movePlayerToward(p, target, dt);
+/* -------------------------------------------------------
+   AI MOVEMENT ONLY IN "Simulate (with Enemy)"
+------------------------------------------------------- */
+if (state.animation.checkWin && p.paths.length === 0 && !p.done && p.alive) {
+  const enemies = state.animation.players.filter(
+    t => t.alive && t.isEnemy !== p.isEnemy
+  );
+
+  const move = getAIMove(p, enemies);
+  if (move) {
+    p.x = move.x;
+    p.y = move.y;
+  }
 }
 
-    // Solange ein Spieler lebt, ist die Runde nicht vorbei
-if (p.alive) allPlayersDone = false;
+    if (!p.done && p.alive) allPlayersDone = false;
 
     if (p.el) {
       p.el.style.left = p.x + 'px';
@@ -2132,51 +2196,6 @@ function performShootingStep() {
       target.hp -= DAMAGE_PER_HIT;
     }
   });
-}
-
-function findClosestVisibleEnemy(player, allPlayers) {
-  let best = null;
-  let bestDist = Infinity;
-
-  allPlayers.forEach(other => {
-    if (!other.alive) return;
-    if (other.isEnemy === player.isEnemy) return;
-
-    const dx = other.x - player.x;
-    const dy = other.y - player.y;
-    const dist = dx*dx + dy*dy;
-
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = other;
-    }
-  });
-
-  return best;
-}
-
-function movePlayerToward(player, target, dt) {
-  if (!target) return;
-
-  const speed = SPEED_WALK * mapSpeedMultiplier[state.currentMap];
-
-  const dx = target.x - player.x;
-  const dy = target.y - player.y;
-  const len = Math.sqrt(dx*dx + dy*dy);
-  if (len < 1) return;
-
-  const stepX = (dx / len) * speed * dt;
-  const stepY = (dy / len) * speed * dt;
-
-  const newX = player.x + stepX;
-  const newY = player.y + stepY;
-
-  // Mask check: nur weiße Bereiche erlaubt
-  const brightness = getMaskBrightness(newX, newY);
-  if (brightness > 200) {
-    player.x = newX;
-    player.y = newY;
-  }
 }
 
 function checkWinCondition() {
@@ -2399,6 +2418,10 @@ function startDurationTimer() {
 
 btnPlay.addEventListener('click', () => {
   state.animation.checkWin = false;
+
+loadMaskForMap(state.currentMap, () => {
+  // continue existing code
+});
 
   stopAnimation();
   resetRoundTimer();
