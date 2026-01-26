@@ -1893,9 +1893,9 @@ function animationLoop(timestamp) {
   state.animation.players.forEach(p => {
     if (!p.alive) return;
 
-    // -------------------------------------------------------
-    // AI MOVEMENT (only in Simulate with Enemy)
-    // -------------------------------------------------------
+    /* -------------------------------------------------------
+       AI MOVEMENT (ONLY in Simulate with Enemy)
+    ------------------------------------------------------- */
     if (state.animation.checkWin && p.paths.length === 0) {
       const enemies = state.animation.players.filter(
         t => t.alive && t.isEnemy !== p.isEnemy
@@ -1907,7 +1907,7 @@ function animationLoop(timestamp) {
         p.y = move.y;
       }
 
-      // AI players are never "done"
+      // AI players are never done
       allPlayersDone = false;
 
       if (p.el) {
@@ -1918,9 +1918,9 @@ function animationLoop(timestamp) {
       return; // Skip normal path logic
     }
 
-    // -------------------------------------------------------
-    // NORMAL PATH ANIMATION
-    // -------------------------------------------------------
+    /* -------------------------------------------------------
+       NORMAL PATH ANIMATION
+    ------------------------------------------------------- */
     if (p.done || p.paths.length === 0) return;
 
     let remaining = dt;
@@ -1930,10 +1930,10 @@ function animationLoop(timestamp) {
       if (!path) {
         // End of all paths
         if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+          p.done = true;
+        } else {
+          p.done = false;
+        }
         break;
       }
 
@@ -1997,14 +1997,10 @@ function animationLoop(timestamp) {
         p.currentPathIndex++;
 
         if (p.currentPathIndex >= p.paths.length) {
-          if (state.animation.checkWin) {
-            p.done = false;
+          if (!state.animation.checkWin) {
+            p.done = true;
           } else {
-            if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+            p.done = false;
           }
         }
 
@@ -2029,14 +2025,10 @@ function animationLoop(timestamp) {
 
         p.currentPathIndex++;
         if (p.currentPathIndex >= p.paths.length) {
-          if (state.animation.checkWin) {
-            p.done = false;
+          if (!state.animation.checkWin) {
+            p.done = true;
           } else {
-            if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+            p.done = false;
           }
         }
 
@@ -2052,14 +2044,10 @@ function animationLoop(timestamp) {
           p.distanceOnSegment = 0;
 
           if (p.currentPathIndex >= p.paths.length) {
-            if (state.animation.checkWin) {
-              p.done = false;
+            if (!state.animation.checkWin) {
+              p.done = true;
             } else {
-              if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+              p.done = false;
             }
             break;
           }
@@ -2087,14 +2075,10 @@ function animationLoop(timestamp) {
             p.distanceOnSegment = 0;
 
             if (p.currentPathIndex >= p.paths.length) {
-              if (state.animation.checkWin) {
-                p.done = false;
+              if (!state.animation.checkWin) {
+                p.done = true;
               } else {
-                if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+                p.done = false;
               }
               break;
             }
@@ -2178,11 +2162,7 @@ function animationLoop(timestamp) {
   state.animation.players.forEach(p => {
     if (p.alive && p.hp <= 0) {
       p.alive = false;
-      if (!state.animation.checkWin) {
-    p.done = true;
-} else {
-    p.done = false; // AI mode → keep player active
-}
+      p.done = true;
       if (p.el && p.el.parentNode) {
         p.el.parentNode.removeChild(p.el);
       }
