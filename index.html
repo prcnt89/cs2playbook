@@ -1984,6 +1984,14 @@ function animationLoop(timestamp) {
       }
     }
 
+// ---------------------------------------------
+// AUTONOMES MOVEMENT (wenn keine eigenen Pfade)
+// ---------------------------------------------
+if (p.paths.length === 0 && p.alive) {
+  const target = findClosestVisibleEnemy(p, state.animation.players);
+  movePlayerToward(p, target, dt);
+}
+
     if (!p.done && p.alive) allPlayersDone = false;
 
     if (p.el) {
@@ -2116,6 +2124,51 @@ function performShootingStep() {
       target.hp -= DAMAGE_PER_HIT;
     }
   });
+}
+
+function findClosestVisibleEnemy(player, allPlayers) {
+  let best = null;
+  let bestDist = Infinity;
+
+  allPlayers.forEach(other => {
+    if (!other.alive) return;
+    if (other.isEnemy === player.isEnemy) return;
+
+    const dx = other.x - player.x;
+    const dy = other.y - player.y;
+    const dist = dx*dx + dy*dy;
+
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = other;
+    }
+  });
+
+  return best;
+}
+
+function movePlayerToward(player, target, dt) {
+  if (!target) return;
+
+  const speed = SPEED_WALK * mapSpeedMultiplier[state.currentMap];
+
+  const dx = target.x - player.x;
+  const dy = target.y - player.y;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 1) return;
+
+  const stepX = (dx / len) * speed * dt;
+  const stepY = (dy / len) * speed * dt;
+
+  const newX = player.x + stepX;
+  const newY = player.y + stepY;
+
+  // Mask check: nur weiße Bereiche erlaubt
+  const brightness = getMaskBrightness(newX, newY);
+  if (brightness > 200) {
+    player.x = newX;
+    player.y = newY;
+  }
 }
 
 function checkWinCondition() {
