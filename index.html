@@ -1929,11 +1929,11 @@ function animationLoop(timestamp) {
       const path = p.paths[p.currentPathIndex];
       if (!path) {
         // End of all paths
-        if (state.animation.checkWin) {
-          p.done = false; // AI mode → never done
-        } else {
-          p.done = true;
-        }
+        if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
         break;
       }
 
@@ -2000,7 +2000,11 @@ function animationLoop(timestamp) {
           if (state.animation.checkWin) {
             p.done = false;
           } else {
-            p.done = true;
+            if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
           }
         }
 
@@ -2028,7 +2032,11 @@ function animationLoop(timestamp) {
           if (state.animation.checkWin) {
             p.done = false;
           } else {
-            p.done = true;
+            if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
           }
         }
 
@@ -2047,7 +2055,11 @@ function animationLoop(timestamp) {
             if (state.animation.checkWin) {
               p.done = false;
             } else {
-              p.done = true;
+              if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
             }
             break;
           }
@@ -2078,7 +2090,11 @@ function animationLoop(timestamp) {
               if (state.animation.checkWin) {
                 p.done = false;
               } else {
-                p.done = true;
+                if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
               }
               break;
             }
@@ -2162,7 +2178,11 @@ function animationLoop(timestamp) {
   state.animation.players.forEach(p => {
     if (p.alive && p.hp <= 0) {
       p.alive = false;
-      p.done = true;
+      if (!state.animation.checkWin) {
+    p.done = true;
+} else {
+    p.done = false; // AI mode → keep player active
+}
       if (p.el && p.el.parentNode) {
         p.el.parentNode.removeChild(p.el);
       }
