@@ -373,7 +373,14 @@ body {
   font-weight:bold;
   margin-bottom:10px;
   text-align:center;
-">0:0</div>
+  display:flex;
+  justify-content:center;
+  gap:6px;
+">
+  <span id="scoreT" style="color:#f9a03f;">0</span>
+  :
+  <span id="scoreCT" style="color:#4fa3ff;">0</span>
+</div>
 
             <!-- Play/Stop Menü -->
             <div class="play-menu">
@@ -1022,9 +1029,8 @@ function renderStats() {
 }
 
 function updateScoreDisplay() {
-  const t = state.score.T;
-  const ct = state.score.CT;
-  document.getElementById("scoreDisplay").textContent = `${t}:${ct}`;
+  document.getElementById("scoreT").textContent = state.score.T;
+  document.getElementById("scoreCT").textContent = state.score.CT;
 }
 
 function renderPlayersAndPaths() {
