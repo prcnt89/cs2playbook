@@ -367,6 +367,14 @@ body {
               ">0:00</div>
             </div>
 
+<div style="font-size:14px; margin:10px 0 6px 0; text-align:center;">Score:</div>
+<div id="scoreDisplay" style="
+  font-size:18px;
+  font-weight:bold;
+  margin-bottom:10px;
+  text-align:center;
+">0:0</div>
+
             <!-- Play/Stop Menü -->
             <div class="play-menu">
               <button id="btnPlay">Simulate</button>
@@ -749,7 +757,8 @@ durationTimer: {
   running: false,
   seconds: 0,
   preCountdown: null
-}
+},
+score: { T: 0, CT: 0 }
 };
 
 /* -------------------------------------------------------
@@ -1010,6 +1019,12 @@ function renderStats() {
 
   document.getElementById("statsDisplay").innerHTML =
     `Wins: ${wins} | Losses: ${losses}<br>${percent}% successful`;
+}
+
+function updateScoreDisplay() {
+  const t = state.score.T;
+  const ct = state.score.CT;
+  document.getElementById("scoreDisplay").textContent = `${t}:${ct}`;
 }
 
 function renderPlayersAndPaths() {
@@ -2323,14 +2338,19 @@ function checkWinCondition() {
     return true;
   }
 
-  // Mein Team gewinnt
+  // My team wins
   if (aliveEnemyTeam.length === 0) {
+    state.score[state.currentTeam]++;
+    updateScoreDisplay();
     alert("Your team wins!");
     return true;
   }
 
-  // Gegner gewinnt
+  // Enemy wins
   if (aliveMyTeam.length === 0) {
+    const enemy = state.currentTeam === "T" ? "CT" : "T";
+    state.score[enemy]++;
+    updateScoreDisplay();
     alert("Enemy team wins!");
     return true;
   }
@@ -2458,6 +2478,11 @@ function resetRoundTimer() {
   state.durationTimer.preCountdown = null;
   state.durationTimer.seconds = 0;
   durationDisplay.textContent = "0:00";
+
+  // Reset score
+  state.score.T = 0;
+  state.score.CT = 0;
+  updateScoreDisplay();
 }
 
 function startPreCountdown(callback) {
@@ -2503,10 +2528,14 @@ function startRoundTimer() {
         const myTeamIsCT = (state.currentTeam === "CT");
 
         if (myTeamIsCT) {
-          alert("Your team wins!");
-        } else {
-          alert("Enemy team wins!");
-        }
+  state.score.CT++;
+  updateScoreDisplay();
+  alert("Your team wins!");
+} else {
+  state.score.T++;
+  updateScoreDisplay();
+  alert("Enemy team wins!");
+}
 
         // Stop animation
         state.animation.running = false;
