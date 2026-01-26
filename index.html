@@ -571,7 +571,43 @@ function buildWalkabilityGrid() {
       const px = Math.floor(x * CELL_SIZE);
       const py = Math.floor(y * CELL_SIZE);
       const brightness = getMaskBrightness(px, py);
-      walkGrid[y][x] = brightness > 30 ? 1 : 0; // 1 = walkable, 0 = wall
+
+      // 1 = walkable, 0 = wall
+      walkGrid[y][x] = brightness > 30 ? 1 : 0;
+    }
+  }
+
+  // -------------------------------------------------------
+  // WALL PADDING: mark cells near walls as blocked
+  // -------------------------------------------------------
+  const padding = 2; // number of grid cells to keep distance (≈ 10px)
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+
+      if (walkGrid[y][x] === 0) continue; // already wall
+
+      // Check neighbors within padding distance
+      let nearWall = false;
+
+      for (let dy = -padding; dy <= padding; dy++) {
+        for (let dx = -padding; dx <= padding; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+
+          if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
+
+          if (walkGrid[ny][nx] === 0) {
+            nearWall = true;
+            break;
+          }
+        }
+        if (nearWall) break;
+      }
+
+      if (nearWall) {
+        walkGrid[y][x] = 0; // mark as blocked
+      }
     }
   }
 }
