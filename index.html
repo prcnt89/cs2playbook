@@ -1935,13 +1935,14 @@ function animationLoop(timestamp) {
           p.distanceOnSegment = 0;
 
           if (p.currentPathIndex >= p.paths.length) {
-    // Spieler ohne Pfade sollen weiterlaufen
-    // Nur im VS‑Modus sollen Spieler ohne Pfade weiterlaufen
-if (state.animation.checkWin && p.paths.length === 0) {
-    p.done = false;
-} else {
-    p.done = true;
-}
+
+    // Im VS‑Modus sollen Spieler ohne Pfade weiterlaufen
+    if (state.animation.checkWin && p.paths.length === 0) {
+        p.done = false;
+    } else {
+        p.done = true;
+    }
+
     break;
 }
           continue;
@@ -1991,15 +1992,14 @@ if (state.animation.checkWin && p.paths.length === 0) {
     }
 
 // ---------------------------------------------
-// AUTONOMES MOVEMENT (wenn keine eigenen Pfade)
+// AUTONOMES MOVEMENT (nur im VS‑Modus)
 // ---------------------------------------------
-// Nur im VS‑Modus autonom bewegen
 if (state.animation.checkWin && p.paths.length === 0 && p.alive) {
-  const target = findClosestVisibleEnemy(p, state.animation.players);
-  movePlayerToward(p, target, dt);
+    const target = findClosestVisibleEnemy(p, state.animation.players);
+    movePlayerToward(p, target, dt);
 }
 
-    // Spieler ohne Pfade gelten NICHT als done
+    // Solange ein Spieler lebt, ist die Runde nicht vorbei
 if (p.alive) allPlayersDone = false;
 
     if (p.el) {
