@@ -1607,20 +1607,20 @@ function buildAnimationState() {
     const startPos = animPaths[0]?.segments?.[0]?.from || { x: player.x, y: player.y };
 
     animPlayers.push({
-  color: player.color,
-  x: startPos.x,
-  y: startPos.y,
-  paths: animPaths,
-  currentPathIndex: 0,
-  currentSegmentIndex: 0,
-  distanceOnSegment: 0,
-  waitRemaining: null,
-  done: false,
-  el: null,
-  team: state.currentTeam,
-  hp: STARTING_HP,
-  alive: true
-});
+      color: player.color,
+      x: startPos.x,
+      y: startPos.y,
+      paths: animPaths,
+      currentPathIndex: 0,
+      currentSegmentIndex: 0,
+      distanceOnSegment: 0,
+      waitRemaining: null,
+      done: false,
+      el: null,
+      isEnemy: false,          // eigenes Team
+      hp: STARTING_HP,
+      alive: true
+    });
   });
 
   return animPlayers;
@@ -1711,20 +1711,20 @@ function buildEnemyAnimationState(enemyPlayers) {
     const startPos = animPaths[0]?.segments?.[0]?.from || { x: player.x, y: player.y };
 
     animPlayers.push({
-  color: "#333",
-  x: startPos.x,
-  y: startPos.y,
-  paths: animPaths,
-  currentPathIndex: 0,
-  currentSegmentIndex: 0,
-  distanceOnSegment: 0,
-  waitRemaining: null,
-  done: false,
-  el: null,
-  team: enemyTeam,
-  hp: STARTING_HP,
-  alive: true
-});
+      color: "#333",        // dark grey
+      x: startPos.x,
+      y: startPos.y,
+      paths: animPaths,
+      currentPathIndex: 0,
+      currentSegmentIndex: 0,
+      distanceOnSegment: 0,
+      waitRemaining: null,
+      done: false,
+      el: null,
+      isEnemy: true,
+      hp: STARTING_HP,
+      alive: true
+    });
   });
 
   return animPlayers;
@@ -2085,8 +2085,8 @@ function performShootingStep() {
 
   players.forEach(shooter => {
     const enemies = players.filter(
-  t => t.alive && t.team !== shooter.team
-);
+      t => t.alive && t.isEnemy !== shooter.isEnemy
+    );
     if (enemies.length === 0) return;
 
     const visibleEnemies = enemies.filter(enemy =>
@@ -2119,21 +2119,26 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveT = state.animation.players.filter(p => p.alive && p.team === "T");
-  const aliveCT = state.animation.players.filter(p => p.alive && p.team === "CT");
+  const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
+  const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  if (aliveT.length === 0 && aliveCT.length === 0) {
+  // Beide tot → Draw
+  if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     alert("Draw!");
     return true;
   }
 
-  if (aliveCT.length === 0) {
-    alert("Terrorists win!");
+  // Mein Team gewinnt
+  if (aliveEnemyTeam.length === 0) {
+    const myTeam = state.currentTeam === "T" ? "Terrorists" : "Counter‑Terrorists";
+    alert(myTeam + " win!");
     return true;
   }
 
-  if (aliveT.length === 0) {
-    alert("Counter‑Terrorists win!");
+  // Gegner gewinnt
+  if (aliveMyTeam.length === 0) {
+    const enemyTeam = state.currentTeam === "T" ? "Counter‑Terrorists" : "Terrorists";
+    alert(enemyTeam + " win!");
     return true;
   }
 
@@ -2401,9 +2406,9 @@ btnPlayVs.addEventListener('click', () => {
       el.style.top = p.y + 'px';
 
       // Enemy outline
-      if (p.team !== state.currentTeam) {
-  el.style.border = "1px solid #ff4444";
-}
+      if (p.isEnemy) {
+        el.style.border = "1px solid #ff4444";
+      }
 
       playersLayerBottom.appendChild(el);
       p.el = el;
