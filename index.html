@@ -2708,11 +2708,9 @@ function startRoundTimer() {
 function startBombTimer() {
 
   // Bombentimer nur im VS-Enemy Modus
-  if (!state.animation.checkWin) {
-    return; // In normalem Simulate KEIN Bombentimer
-  }
+  if (!state.animation.checkWin) return;
 
-  // Stop normal round timer
+  // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
     state.roundTimer.interval = null;
@@ -2721,22 +2719,8 @@ function startBombTimer() {
   state.bombPlanted = true;
   state.bombTimer.remaining = 40;
 
+  // Anzeige sofort aktualisieren
   roundTimeDisplay.textContent = "0:40";
-
-  state.bombTimer.interval = setInterval(() => {
-    state.bombTimer.remaining--;
-
-    const s = state.bombTimer.remaining;
-    roundTimeDisplay.textContent = `0:${s.toString().padStart(2, "0")}`;
-
-    // Bomb explodes
-    if (s <= 0) {
-      clearInterval(state.bombTimer.interval);
-      state.bombTimer.interval = null;
-
-      handleBombExplosion();
-    }
-  }, 830);
 }
 
 function handleBombExplosion() {
@@ -2781,17 +2765,31 @@ function startDurationPreCountdown(callback) {
 }
 
 function startDurationTimer() {
-  // If seconds already exist → continue running
   let seconds = state.durationTimer.seconds ?? 0;
 
   state.durationTimer.interval = setInterval(() => {
     seconds++;
     state.durationTimer.seconds = seconds;
 
+    // Duration anzeigen
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+
+    // -----------------------------
+    // Bomben-Timer synchron ticken
+    // -----------------------------
+    if (state.animation.checkWin && state.bombPlanted) {
+      state.bombTimer.remaining--;
+
+      const bs = state.bombTimer.remaining;
+      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
+
+      if (bs <= 0) {
+        handleBombExplosion();
+      }
+    }
+
   }, 830);
 }
 
@@ -2900,60 +2898,38 @@ btnStop.addEventListener('click', () => {
   resetRoundTimer();
 
   if (state.animation.checkWin) {
-    if (state.bombTimer.interval) {
-      clearInterval(state.bombTimer.interval);
-      state.bombTimer.interval = null;
-    }
     state.bombPlanted = false;
+    state.bombTimer.remaining = 40;
   }
-
-  // Duration Timer läuft normal weiter
 });
 
 btnPause.addEventListener('click', () => {
   state.paused = !state.paused;
 
   if (state.paused) {
-    // Pause animation
     if (state.animation.frameRequest) {
       cancelAnimationFrame(state.animation.frameRequest);
       state.animation.frameRequest = null;
     }
 
-    // Pause round timer
     if (state.roundTimer.interval) {
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
     }
 
-    // Bombenlogik nur im VS-Enemy Modus
-    if (state.animation.checkWin) {
-      if (state.bombTimer.interval) {
-        clearInterval(state.bombTimer.interval);
-        state.bombTimer.interval = null;
-      }
-    }
-
-    // Duration Timer NICHT stoppen!
+    // Duration Timer NICHT stoppen
+    // Bomben-Timer hat keinen eigenen Intervall mehr
 
   } else {
-    // Continue animation
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    // Round timer nur fortsetzen, wenn keine Bombe liegt
     if (!state.bombPlanted && state.roundTimer.remaining > 0) {
       startRoundTimer();
     }
 
-    // Bombenlogik nur im VS-Enemy Modus
-    if (state.animation.checkWin) {
-      if (state.bombPlanted) {
-        startBombTimer();
-      }
-    }
-
-    // Duration Timer NICHT neu starten!
+    // Duration Timer weiterlaufen lassen
+    // Bomben-Timer tickt automatisch mit
   }
 });
 
