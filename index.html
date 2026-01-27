@@ -794,7 +794,6 @@ const state = {
   currentMap: maps[0],
   currentTeam: 'T',
   tabs: {},
-  defuseResolved: false,
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
 
@@ -2578,56 +2577,47 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveT = state.animation.players.filter(p => p.alive && !p.isEnemy);
-  const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
+  const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  const T_alive = aliveT.length > 0;
-  const CT_alive = aliveCT.length > 0;
-  const bombPlanted = state.bomb.planted;
+  // Draw
+  if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
+    stopAllTimers();
+    state.animation.running = false;
+    alert("Draw!");
+    return true;
+  }
 
-  // Hilfsfunktion für korrekte Meldung
-  function announceWinner(winnerTeam) {
+  // My team wins
+  if (aliveEnemyTeam.length === 0) {
+
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
+
     stopAllTimers();
     state.animation.running = false;
 
-    state.score[winnerTeam]++;
+    state.score[state.currentTeam]++;
     updateScoreDisplay();
-
-    if (state.currentTeam === winnerTeam) {
-      alert("Your team wins!");
-    } else {
-      alert("Enemy team wins!");
-    }
-  }
-
-  /* ---------------------------------------------------------
-     1) ROUND TIMER ABGELAUFEN → CT gewinnt SOFORT
-  --------------------------------------------------------- */
-  if (state.roundTimer.remaining <= 0) {
-    announceWinner("CT");
+    alert("Your team wins!");
     return true;
   }
 
-  /* ---------------------------------------------------------
-     2) ALLE CT TOT → T gewinnt SOFORT
-  --------------------------------------------------------- */
-  if (!CT_alive) {
-    announceWinner("T");
-    return true;
-  }
+  // Enemy wins
+  if (aliveMyTeam.length === 0) {
 
-  /* ---------------------------------------------------------
-     3) ALLE T TOT + Bombe liegt → CT gewinnt erst nach Defuse
-  --------------------------------------------------------- */
-  if (!T_alive && bombPlanted) {
-    return false; // kein sofortiger Sieg
-  }
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
 
-  /* ---------------------------------------------------------
-     4) ALLE T TOT + Bombe liegt NICHT → CT gewinnt SOFORT
-  --------------------------------------------------------- */
-  if (!T_alive && !bombPlanted) {
-    announceWinner("CT");
+    stopAllTimers();
+    state.animation.running = false;
+
+    const enemy = state.currentTeam === "T" ? "CT" : "T";
+    state.score[enemy]++;
+    updateScoreDisplay();
+    alert("Enemy team wins!");
     return true;
   }
 
@@ -2840,9 +2830,6 @@ function startUnifiedTick() {
     clearInterval(state.unifiedInterval);
   }
 
-  // Reset Defuse-Flag
-  state.defuseResolved = false;
-
   state.unifiedInterval = setInterval(() => {
 
     /* ---------------------------------------------------------
@@ -2889,18 +2876,15 @@ function startUnifiedTick() {
     /* ---------------------------------------------------------
        DEFUSE CHECK (CT steht auf Bombe)
     --------------------------------------------------------- */
-    if (state.bomb.planted && !state.defuseResolved) {
+    if (state.bomb.planted) {
 
       const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-      for (const ct of CTs) {
+      CTs.forEach(ct => {
         if (ct.defuseRemaining != null) {
           ct.defuseRemaining -= 1;
 
           if (ct.defuseRemaining <= 0) {
-
-            // WICHTIG: Sieg nur einmal auslösen
-            state.defuseResolved = true;
 
             stopAllTimers();
             state.animation.running = false;
@@ -2920,14 +2904,14 @@ function startUnifiedTick() {
             return;
           }
         }
-      }
+      });
     }
 
 
     /* ---------------------------------------------------------
        BOMB TIMER (Explosion)
     --------------------------------------------------------- */
-    if (state.bomb.planted && !state.defuseResolved) {
+    if (state.bomb.planted) {
 
       state.bomb.timer--;
 
@@ -2935,9 +2919,6 @@ function startUnifiedTick() {
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
       if (bs <= 0) {
-
-        // Explosion → Sieg nur einmal
-        state.defuseResolved = true;
 
         stopAllTimers();
         state.animation.running = false;
