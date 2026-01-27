@@ -1854,7 +1854,7 @@ function autoRushIfNoActions(player, enemies) {
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    player.team === "CT"   // <<< WICHTIG: echtes Team
+    player.team === "CT"
   ) {
 
     const dx = player.x - state.bomb.x;
@@ -2578,47 +2578,63 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
-  const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const aliveT = state.animation.players.filter(p => p.alive && p.team === "T");
+  const aliveCT = state.animation.players.filter(p => p.alive && p.team === "CT");
 
-  // Draw
-  if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
+  // ---------------------------------------------------------
+  // DRAW
+  // ---------------------------------------------------------
+  if (aliveT.length === 0 && aliveCT.length === 0) {
     stopAllTimers();
     state.animation.running = false;
     alert("Draw!");
     return true;
   }
 
-  // My team wins
-  if (aliveEnemyTeam.length === 0) {
-
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
-
-    stopAllTimers();
-    state.animation.running = false;
-
-    state.score[state.currentTeam]++;
-    updateScoreDisplay();
-    alert("Your team wins!");
-    return true;
+  // ---------------------------------------------------------
+  // TERRORISTS ALIVE? → normaler Ablauf
+  // ---------------------------------------------------------
+  if (aliveT.length > 0 && aliveCT.length > 0) {
+    return false; // Runde läuft weiter
   }
 
-  // Enemy wins
-  if (aliveMyTeam.length === 0) {
+  // ---------------------------------------------------------
+  // ALLE TERRORISTEN TOT
+  // ---------------------------------------------------------
+  if (aliveT.length === 0) {
 
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
+    // Bombe NICHT gelegt → CT gewinnt SOFORT
+    if (!state.bomb.planted) {
+      stopAllTimers();
+      state.animation.running = false;
 
+      state.score.CT++;
+      updateScoreDisplay();
+
+      if (state.currentTeam === "CT") alert("Your team wins!");
+      else alert("Enemy team wins!");
+
+      return true;
+    }
+
+    // Bombe GELEGT → CT gewinnt NICHT sofort!
+    // CT muss ENTschärfen → Sieg wird in startUnifiedTick() ausgelöst
+    return false;
+  }
+
+  // ---------------------------------------------------------
+  // ALLE CT TOT → T gewinnt SOFORT (egal ob Bombe liegt)
+  // ---------------------------------------------------------
+  if (aliveCT.length === 0) {
     stopAllTimers();
     state.animation.running = false;
 
-    const enemy = state.currentTeam === "T" ? "CT" : "T";
-    state.score[enemy]++;
+    state.score.T++;
     updateScoreDisplay();
-    alert("Enemy team wins!");
+
+    if (state.currentTeam === "T") alert("Your team wins!");
+    else alert("Enemy team wins!");
+
     return true;
   }
 
@@ -2842,7 +2858,7 @@ function startUnifiedTick() {
 
 
     // ---------------------------------------------------------
-    // ROUND TIMER (only when bomb NOT planted)
+    // ROUND TIMER (nur wenn Bombe NICHT liegt)
     // ---------------------------------------------------------
     if (!state.bomb.planted && state.roundTimer.remaining > 0) {
 
@@ -2858,15 +2874,12 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
-        // CT wins on timeout
+        // CT gewinnt IMMER bei Timeout
         state.score.CT++;
         updateScoreDisplay();
 
-        if (state.currentTeam === "CT") {
-          alert("Your team wins!");
-        } else {
-          alert("Enemy team wins!");
-        }
+        if (state.currentTeam === "CT") alert("Your team wins!");
+        else alert("Enemy team wins!");
 
         return;
       }
@@ -2880,7 +2893,7 @@ function startUnifiedTick() {
 
       const CTs = state.animation.players.filter(p =>
         p.alive &&
-        p.team === "CT"   // <<< WICHTIG: echtes Team
+        p.team === "CT"
       );
 
       CTs.forEach(ct => {
@@ -2898,11 +2911,8 @@ function startUnifiedTick() {
             state.score.CT++;
             updateScoreDisplay();
 
-            if (state.currentTeam === "CT") {
-              alert("Your team wins!");
-            } else {
-              alert("Enemy team wins!");
-            }
+            if (state.currentTeam === "CT") alert("Your team wins!");
+            else alert("Enemy team wins!");
 
             return;
           }
@@ -2926,17 +2936,12 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
-        const myTeam = state.currentTeam;
+        // Explosion → T gewinnt IMMER
+        state.score.T++;
+        updateScoreDisplay();
 
-        if (myTeam === "T") {
-          state.score.T++;
-          updateScoreDisplay();
-          alert("Your team wins!");
-        } else {
-          state.score.T++;
-          updateScoreDisplay();
-          alert("Enemy team wins!");
-        }
+        if (state.currentTeam === "T") alert("Your team wins!");
+        else alert("Enemy team wins!");
 
         return;
       }
