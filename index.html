@@ -796,34 +796,29 @@ const state = {
   tabs: {},
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
-    animation: {
-  running: false,
-  players: [],
-  frameRequest: null,
-  lastTime: null,
-  grenades: [],
-  shootAccumulator: 0,
-  molotovAccumulator: 0,
-  checkWin: false
-},
-paused: false,
-roundTimer: {
-  interval: null,
-  running: false
-},
-durationTimer: {
-  interval: null,
-  running: false,
-  seconds: 0,
-  preCountdown: null
-},
-bombTimer: {
-  interval: null,
-  running: false,
-  remaining: 40
-},
-bombPlanted: false,
-score: { T: 0, CT: 0 }
+  animation: {
+    running: false,
+    players: [],
+    frameRequest: null,
+    lastTime: null,
+    grenades: [],
+    shootAccumulator: 0,
+    molotovAccumulator: 0,
+    checkWin: false
+  },
+  paused: false,
+  timersPaused: false,   // <-- HIER EINFÜGEN
+  roundTimer: {
+    interval: null,
+    running: false
+  },
+  durationTimer: {
+    interval: null,
+    running: false,
+    seconds: 0,
+    preCountdown: null
+  },
+  score: { T: 0, CT: 0 }
 };
 
 /* -------------------------------------------------------
@@ -2714,8 +2709,6 @@ function startRoundTimer() {
 }
 
 function startBombTimer() {
-
-  // Bombentimer nur im VS-Enemy Modus
   if (!state.animation.checkWin) return;
 
   // Round timer stoppen
@@ -2727,7 +2720,6 @@ function startBombTimer() {
   state.bombPlanted = true;
   state.bombTimer.remaining = 40;
 
-  // Anzeige sofort aktualisieren
   roundTimeDisplay.textContent = "0:40";
 }
 
@@ -2776,6 +2768,10 @@ function startDurationTimer() {
   let seconds = state.durationTimer.seconds ?? 0;
 
   state.durationTimer.interval = setInterval(() => {
+
+    // Wenn pausiert → nichts tickt
+    if (state.timersPaused) return;
+
     // Duration hochzählen
     seconds++;
     state.durationTimer.seconds = seconds;
@@ -2794,7 +2790,7 @@ function startDurationTimer() {
       const bs = state.bombTimer.remaining;
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
-      // Wenn Bombe abgelaufen ist → Explosion
+      // Bombe abgelaufen → Explosion
       if (bs <= 0) {
 
         // Runde bereits entschieden? → NICHT explodieren
@@ -2916,39 +2912,45 @@ btnStop.addEventListener('click', () => {
   stopAnimation();
   resetRoundTimer();
 
-  if (state.animation.checkWin) {
-    state.bombPlanted = false;
-    state.bombTimer.remaining = 40;
-  }
+  state.bombPlanted = false;
+  state.bombTimer.remaining = 40;
+
+  state.timersPaused = false;
 });
 
 btnPause.addEventListener('click', () => {
   state.paused = !state.paused;
 
   if (state.paused) {
+
+    // Animation pausieren
     if (state.animation.frameRequest) {
       cancelAnimationFrame(state.animation.frameRequest);
       state.animation.frameRequest = null;
     }
 
+    // Round timer pausieren
     if (state.roundTimer.interval) {
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
     }
 
-    // Duration Timer NICHT stoppen
-    // Bomben-Timer hat keinen eigenen Intervall mehr
+    // Beide Timer pausieren
+    state.timersPaused = true;
 
   } else {
+
+    // Animation fortsetzen
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
+    // Round timer nur fortsetzen, wenn keine Bombe liegt
     if (!state.bombPlanted && state.roundTimer.remaining > 0) {
       startRoundTimer();
     }
 
-    // Duration Timer weiterlaufen lassen
-    // Bomben-Timer tickt automatisch mit
+    // Beide Timer weiterlaufen lassen
+    state.timersPaused = false;
   }
 });
 
