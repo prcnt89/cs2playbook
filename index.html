@@ -825,18 +825,12 @@ const state = {
 
   score: { T: 0, CT: 0 },
 
+  // NEW: Bomb system
   bomb: {
     planted: false,
     timer: 40,
     interval: null
-  },
-
-defuse: {
-  active: false,
-  timer: 0,
-  player: null
-}
-
+  }
 };
 
 /* -------------------------------------------------------
@@ -1850,48 +1844,6 @@ function buildAnimationState() {
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
   if (!player.done) return;
-
-  // -----------------------------------------
-  // CT LOGIC: If bomb planted → run to bomb
-  // -----------------------------------------
-  if (state.animation.checkWin && state.bomb.planted && player.isEnemy) {
-    const bombPos = state.bomb.position;
-    if (!bombPos) return;
-
-    const start = worldToGrid(player.x, player.y);
-    const goal = worldToGrid(bombPos.x, bombPos.y);
-
-    let path = findPathAStar(start, goal);
-    if (!path || path.length < 2) return;
-
-    const rushPath = {
-      type: "Rush",
-      segments: [],
-      totalLength: 0,
-      speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
-    };
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i];
-      const b = path[i+1];
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.sqrt(dx*dx + dy*dy);
-      rushPath.segments.push({ from:a, to:b, length:len });
-      rushPath.totalLength += len;
-    }
-
-    player.paths.push(rushPath);
-    player.currentPathIndex = player.paths.length - 1;
-    player.currentSegmentIndex = 0;
-    player.distanceOnSegment = 0;
-    player.done = false;
-    return;
-  }
-
-  // -----------------------------------------
-  // T LOGIC: Normal autorush to nearest enemy
-  // -----------------------------------------
   if (enemies.length === 0) return;
 
   let nearest = null;
@@ -1916,6 +1868,31 @@ function autoRushIfNoActions(player, enemies) {
   let path = findPathAStar(start, goal);
   if (!path || path.length < 2) return;
 
+  // -----------------------------------------
+  // FIX: Remove segments that hit walls
+  // -----------------------------------------
+  function segmentHitsWall(a, b) {
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const g = worldToGrid(x, y);
+      if (walkGrid[g.gy][g.gx] === 0) return true;
+    }
+    return false;
+  }
+
+  const cleaned = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!segmentHitsWall(path[i], path[i+1])) {
+      cleaned.push(path[i]);
+    }
+  }
+  cleaned.push(path[path.length - 1]);
+
+  if (cleaned.length < 2) return;
+
   const rushPath = {
     type: "Rush",
     segments: [],
@@ -1923,9 +1900,9 @@ function autoRushIfNoActions(player, enemies) {
     speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
   };
 
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i];
-    const b = path[i+1];
+  for (let i = 0; i < cleaned.length - 1; i++) {
+    const a = cleaned[i];
+    const b = cleaned[i+1];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.sqrt(dx*dx + dy*dy);
@@ -2141,7 +2118,7 @@ function animationLoop(timestamp) {
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
     if (!p.alive) return;
-    if (p.paths.length === 0) return;
+    if (p.done || p.paths.length === 0) return;
 
     let remaining = dt;
 
@@ -2170,46 +2147,42 @@ function animationLoop(timestamp) {
       }
 
       /* PLANT BOMB */
-      if (path.type === 'PlantBomb') {
-        p.x = path.x;
-        p.y = path.y;
+if (path.type === 'PlantBomb') {
+  p.x = path.x;
+  p.y = path.y;
 
-        path.progress += remaining;
+  path.progress += remaining;
 
-        if (path.progress >= path.duration && !path.planted) {
-          path.planted = true;
+  if (path.progress >= path.duration && !path.planted) {
+    path.planted = true;
 
-          // Bomb visual
-          const bomb = document.createElement('div');
-          bomb.style.position = 'absolute';
-          bomb.style.width = '14px';
-          bomb.style.height = '7px';
-          bomb.style.left = path.x + 'px';
-          bomb.style.top = path.y + 'px';
-          bomb.style.transform = 'translate(-50%, -50%)';
-          bomb.style.background = '#777';
-          bomb.style.border = '1px solid #333';
-          bomb.style.animation = 'bombBlink 0.8s infinite';
-          playersLayerBottom.appendChild(bomb);
+    // Bomb visual
+    const bomb = document.createElement('div');
+    bomb.style.position = 'absolute';
+    bomb.style.width = '14px';
+    bomb.style.height = '7px';
+    bomb.style.left = path.x + 'px';
+    bomb.style.top = path.y + 'px';
+    bomb.style.transform = 'translate(-50%, -50%)';
+    bomb.style.background = '#777';
+    bomb.style.border = '1px solid #333';
+    bomb.style.animation = 'bombBlink 0.8s infinite';
+    playersLayerBottom.appendChild(bomb);
 
-          // Save bomb position
-          state.bomb.position = { x: path.x, y: path.y };
+    // NEW: Start bomb timer ONLY in PlayVs mode
+    if (state.animation.checkWin && !state.bomb.planted) {
+      state.bomb.planted = true;
+      startBombTimer();
+    }
+  }
 
-          // Start bomb timer only in PlayVs mode
-          if (state.animation.checkWin && !state.bomb.planted) {
-            state.bomb.planted = true;
-            startBombTimer();
-          }
-        }
+  if (path.progress >= path.duration) {
+    p.currentPathIndex++;
+  }
 
-        // DO NOT STOP PLAYER
-        if (path.progress >= path.duration) {
-          p.currentPathIndex++;
-        }
-
-        remaining = 0;
-        continue;
-      }
+  remaining = 0;
+  continue;
+}
 
       /* UTILITY */
       if (
@@ -2288,15 +2261,7 @@ function animationLoop(timestamp) {
             p.currentSegmentIndex = 0;
             p.distanceOnSegment = 0;
 
-            // IMPORTANT FIX:
-            // PlantBomb must NOT stop the player
             if (p.currentPathIndex >= p.paths.length) {
-              const lastPath = p.paths[p.paths.length - 1];
-              if (state.animation.checkWin && lastPath && lastPath.type === "PlantBomb") {
-                p.done = true; // scripted actions done
-                break;
-              }
-
               p.done = true;
               break;
             }
@@ -2397,103 +2362,57 @@ function animationLoop(timestamp) {
   });
 
   /* -------------------------------------------------------
-     DEFUSE CHECK (CT stands on bomb for 5 seconds)
-  ------------------------------------------------------- */
-  if (state.animation.checkWin && state.bomb.planted) {
-    const bomb = state.bomb.position;
+   WIN CHECK (VS ENEMY ONLY)
+------------------------------------------------------- */
+if (state.animation.checkWin) {
 
-    const ctPlayers = state.animation.players.filter(p => p.isEnemy && p.alive);
-
-    let defuser = null;
-
-    ctPlayers.forEach(p => {
-      const dx = p.x - bomb.x;
-      const dy = p.y - bomb.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-
-      if (dist <= 12) {
-        defuser = p;
-      }
-    });
-
-    if (defuser) {
-      if (!state.bomb.defuse.active) {
-        state.bomb.defuse.active = true;
-        state.bomb.defuse.timer = 5;
-        state.bomb.defuse.player = defuser;
-      } else {
-        state.bomb.defuse.timer -= dt;
-
-        if (state.bomb.defuse.timer <= 0) {
-          const myTeam = state.currentTeam;
-
-          if (myTeam === "CT") {
-            state.score.CT++;
-            updateScoreDisplay();
-            alert("Your team wins!");
-          } else {
-            state.score.CT++;
-            updateScoreDisplay();
-            alert("Enemy team wins!");
-          }
-
-          state.animation.running = false;
-          if (state.animation.frameRequest) {
-            cancelAnimationFrame(state.animation.frameRequest);
-            state.animation.frameRequest = null;
-          }
-
-          if (state.unifiedInterval) {
-            clearInterval(state.unifiedInterval);
-            state.unifiedInterval = null;
-          }
-
-          return;
-        }
-      }
-    } else {
-      state.bomb.defuse.active = false;
-      state.bomb.defuse.timer = 5;
-      state.bomb.defuse.player = null;
-    }
+  // If time already expired → winner already handled in startRoundTimer()
+  if (state.roundTimer.remaining <= 0) {
+    return;
   }
+
+  if (checkWinCondition()) {
+    state.animation.running = false;
+    state.animation.frameRequest = null;
+
+    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+
+    return;
+  }
+}
 
   /* -------------------------------------------------------
-     WIN CHECK (VS ENEMY ONLY)
-  ------------------------------------------------------- */
-  if (state.animation.checkWin) {
+   STOP CONDITION (NORMAL SIMULATE ONLY)
+------------------------------------------------------- */
+if (!state.animation.checkWin) {
+  if (allPlayersDone && state.animation.grenades.length === 0) {
 
-    if (state.roundTimer.remaining <= 0 && !state.bomb.planted) {
-      return;
+    // Animation stoppen
+    state.animation.running = false;
+    state.animation.frameRequest = null;
+
+    // Round timer stoppen
+    if (state.roundTimer.interval) {
+      clearInterval(state.roundTimer.interval);
+      state.roundTimer.interval = null;
     }
 
-    if (checkWinCondition()) {
-      state.animation.running = false;
-      state.animation.frameRequest = null;
-
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
-
-      return;
+    // Unified tick stoppen (WICHTIG!)
+    if (state.unifiedInterval) {
+      clearInterval(state.unifiedInterval);
+      state.unifiedInterval = null;
     }
+
+    // Duration timer NICHT weiterlaufen lassen
+    if (state.durationTimer.interval) {
+      clearInterval(state.durationTimer.interval);
+      state.durationTimer.interval = null;
+    }
+
+    return;
   }
-
-  /* -------------------------------------------------------
-     STOP CONDITION (NORMAL SIMULATE ONLY)
-  ------------------------------------------------------- */
-  if (!state.animation.checkWin) {
-    if (allPlayersDone && state.animation.grenades.length === 0) {
-
-      state.animation.running = false;
-      state.animation.frameRequest = null;
-
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.unifiedInterval) clearInterval(state.unifiedInterval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
-
-      return;
-    }
-  }
+}
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
 }
