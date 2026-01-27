@@ -796,29 +796,28 @@ const state = {
   tabs: {},
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
-  animation: {
-    running: false,
-    players: [],
-    frameRequest: null,
-    lastTime: null,
-    grenades: [],
-    shootAccumulator: 0,
-    molotovAccumulator: 0,
-    checkWin: false
-  },
-  paused: false,
-  timersPaused: false,   // <-- HIER EINFÜGEN
-  roundTimer: {
-    interval: null,
-    running: false
-  },
-  durationTimer: {
-    interval: null,
-    running: false,
-    seconds: 0,
-    preCountdown: null
-  },
-  score: { T: 0, CT: 0 }
+    animation: {
+  running: false,
+  players: [],
+  frameRequest: null,
+  lastTime: null,
+  grenades: [],
+  shootAccumulator: 0,
+  molotovAccumulator: 0,
+  checkWin: false
+},
+paused: false,
+roundTimer: {
+  interval: null,
+  running: false
+},
+durationTimer: {
+  interval: null,
+  running: false,
+  seconds: 0,
+  preCountdown: null
+},
+score: { T: 0, CT: 0 }
 };
 
 /* -------------------------------------------------------
@@ -2135,41 +2134,35 @@ function animationLoop(timestamp) {
       }
 
       /* PLANT BOMB */
-if (path.type === 'PlantBomb') {
-  p.x = path.x;
-  p.y = path.y;
+      if (path.type === 'PlantBomb') {
+        p.x = path.x;
+        p.y = path.y;
 
-  path.progress += remaining;
+        path.progress += remaining;
 
-  if (path.progress >= path.duration && !path.planted) {
-    path.planted = true;
+        if (path.progress >= path.duration && !path.planted) {
+          path.planted = true;
 
-    // Bombe anzeigen
-    const bomb = document.createElement('div');
-    bomb.style.position = 'absolute';
-    bomb.style.width = '14px';
-    bomb.style.height = '7px';
-    bomb.style.left = path.x + 'px';
-    bomb.style.top = path.y + 'px';
-    bomb.style.transform = 'translate(-50%, -50%)';
-    bomb.style.background = '#777';
-    bomb.style.border = '1px solid #333';
-    bomb.style.animation = 'bombBlink 0.8s infinite';
-    playersLayerBottom.appendChild(bomb);
+          const bomb = document.createElement('div');
+          bomb.style.position = 'absolute';
+          bomb.style.width = '14px';
+          bomb.style.height = '7px';
+          bomb.style.left = path.x + 'px';
+          bomb.style.top = path.y + 'px';
+          bomb.style.transform = 'translate(-50%, -50%)';
+          bomb.style.background = '#777';
+          bomb.style.border = '1px solid #333';
+          bomb.style.animation = 'bombBlink 0.8s infinite';
+          playersLayerBottom.appendChild(bomb);
+        }
 
-    // -----------------------------
-    // NEW: Bomb planted → start bomb timer
-    // -----------------------------
-    startBombTimer();
-  }
+        if (path.progress >= path.duration) {
+          p.currentPathIndex++;
+        }
 
-  if (path.progress >= path.duration) {
-    p.currentPathIndex++;
-  }
-
-  remaining = 0;
-  continue;
-}
+        remaining = 0;
+        continue;
+      }
 
       /* UTILITY */
       if (
@@ -2458,14 +2451,6 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-
-// Wenn ein Gewinner feststeht → Bomben-Timer stoppen
-if (state.bombTimer.interval) {
-  clearInterval(state.bombTimer.interval);
-  state.bombTimer.interval = null;
-}
-state.bombPlanted = false;
-
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
@@ -2620,15 +2605,6 @@ function resetRoundTimer() {
   state.score.T = 0;
   state.score.CT = 0;
   updateScoreDisplay();
-
-// Reset bomb timer
-if (state.bombTimer.interval) {
-  clearInterval(state.bombTimer.interval);
-}
-state.bombTimer.interval = null;
-state.bombTimer.running = false;
-state.bombPlanted = false;
-state.bombTimer.remaining = 40;
 }
 
 function startPreCountdown(callback) {
@@ -2708,46 +2684,6 @@ function startRoundTimer() {
   }, 830);
 }
 
-function startBombTimer() {
-  if (!state.animation.checkWin) return;
-
-  // Round timer stoppen
-  if (state.roundTimer.interval) {
-    clearInterval(state.roundTimer.interval);
-    state.roundTimer.interval = null;
-  }
-
-  state.bombPlanted = true;
-  state.bombTimer.remaining = 40;
-
-  roundTimeDisplay.textContent = "0:40";
-}
-
-function handleBombExplosion() {
-  // Stop animation
-  state.animation.running = false;
-  if (state.animation.frameRequest) {
-    cancelAnimationFrame(state.animation.frameRequest);
-    state.animation.frameRequest = null;
-  }
-
-  // Duration Timer NICHT stoppen!
-  // (Er soll weiterlaufen)
-
-  // T wins ALWAYS on bomb explosion
-  const myTeam = state.currentTeam;
-
-  if (myTeam === "T") {
-    state.score.T++;
-    updateScoreDisplay();
-    alert("Your team wins!");
-  } else {
-    state.score.T++;
-    updateScoreDisplay();
-    alert("Enemy team wins!");
-  }
-}
-
 function startDurationPreCountdown(callback) {
   let timeLeft = 2;
   durationDisplay.textContent = timeLeft;
@@ -2765,46 +2701,17 @@ function startDurationPreCountdown(callback) {
 }
 
 function startDurationTimer() {
+  // If seconds already exist → continue running
   let seconds = state.durationTimer.seconds ?? 0;
 
   state.durationTimer.interval = setInterval(() => {
-
-    // Wenn pausiert → nichts tickt
-    if (state.timersPaused) return;
-
-    // Duration hochzählen
     seconds++;
     state.durationTimer.seconds = seconds;
 
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
+
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-
-    // ---------------------------------------------------
-    // Bomben-Timer synchron ticken (nur VS-Enemy)
-    // ---------------------------------------------------
-    if (state.animation.checkWin && state.bombPlanted) {
-
-      state.bombTimer.remaining--;
-
-      const bs = state.bombTimer.remaining;
-      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
-
-      // Bombe abgelaufen → Explosion
-      if (bs <= 0) {
-
-        // Runde bereits entschieden? → NICHT explodieren
-        const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
-        const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
-
-        if (aliveMyTeam.length === 0 || aliveEnemyTeam.length === 0) {
-          return; // Runde ist schon vorbei
-        }
-
-        handleBombExplosion();
-      }
-    }
-
   }, 830);
 }
 
@@ -2911,46 +2818,41 @@ updateTacticInfoDisplay();
 btnStop.addEventListener('click', () => {
   stopAnimation();
   resetRoundTimer();
-
-  state.bombPlanted = false;
-  state.bombTimer.remaining = 40;
-
-  state.timersPaused = false;
 });
 
 btnPause.addEventListener('click', () => {
   state.paused = !state.paused;
 
   if (state.paused) {
-
-    // Animation pausieren
+    // Pause animation
     if (state.animation.frameRequest) {
       cancelAnimationFrame(state.animation.frameRequest);
       state.animation.frameRequest = null;
     }
 
-    // Round timer pausieren
+    // Pause round timer
     if (state.roundTimer.interval) {
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
     }
 
-    // Beide Timer pausieren
-    state.timersPaused = true;
+    // Pause duration timer
+    if (state.durationTimer.interval) {
+      clearInterval(state.durationTimer.interval);
+      state.durationTimer.interval = null;
+    }
 
   } else {
-
-    // Animation fortsetzen
+    // Continue animation
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    // Round timer nur fortsetzen, wenn keine Bombe liegt
-    if (!state.bombPlanted && state.roundTimer.remaining > 0) {
+    // Continue timer (DON'T restart!)
+    if (state.roundTimer.remaining > 0) {
       startRoundTimer();
     }
 
-    // Beide Timer weiterlaufen lassen
-    state.timersPaused = false;
+    startDurationTimer();
   }
 });
 
