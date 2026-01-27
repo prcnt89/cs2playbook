@@ -791,7 +791,7 @@ function isFlashed(player) {
 ------------------------------------------------------- */
 
 const state = {
-winDeclared: false,
+  winDeclared: false,
   currentMap: maps[0],
   currentTeam: 'T',
   tabs: {},
@@ -2897,7 +2897,6 @@ if (!state.winDeclared && state.bomb.planted) {
   });
 }
 
-
     /* ---------------------------------------------------------
    BOMB TIMER (Explosion)
 --------------------------------------------------------- */
@@ -2924,6 +2923,9 @@ if (!state.winDeclared && state.bomb.planted) {
       alert("Enemy team wins!");
     }
   }
+}
+
+  }, 1000); // 1-second tick
 }
 
 function stopAllTimers() {
