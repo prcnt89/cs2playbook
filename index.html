@@ -2729,66 +2729,84 @@ function startDurationPreCountdown(callback) {
 }
 
 function startDurationTimer() {
-  // If seconds already exist → continue running
-  let seconds = state.durationTimer.seconds ?? 0;
+  // Falls unified tick schon läuft → nichts tun
+  if (state.unifiedInterval) return;
 
-  state.durationTimer.interval = setInterval(() => {
-    seconds++;
-    state.durationTimer.seconds = seconds;
-
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-
-    durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-  }, 830);
+  // Unified Tick starten
+  startUnifiedTick();
 }
 
 function startBombTimer() {
-  // Stop round timer immediately
+  // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
     state.roundTimer.interval = null;
   }
 
+  // Bombenstatus setzen
+  state.bomb.planted = true;
   state.bomb.timer = 40;
+
+  // Anzeige sofort aktualisieren
   roundTimeDisplay.textContent = "0:40";
 
-  state.bomb.interval = setInterval(() => {
-    state.bomb.timer--;
+  // Unified Tick starten (falls nicht aktiv)
+  startUnifiedTick();
+}
 
-    const s = state.bomb.timer;
-    roundTimeDisplay.textContent = `0:${s.toString().padStart(2, "0")}`;
+function startUnifiedTick() {
+  // Falls schon aktiv → stoppen
+  if (state.unifiedInterval) {
+    clearInterval(state.unifiedInterval);
+  }
 
-    if (s <= 0) {
-      clearInterval(state.bomb.interval);
-      state.bomb.interval = null;
+  state.unifiedInterval = setInterval(() => {
 
-      // Bomb explodes → T wins
-      const myTeam = state.currentTeam;
+    // -----------------------------------------
+    // DURATION TIMER
+    // -----------------------------------------
+    state.durationTimer.seconds++;
+    const m = Math.floor(state.durationTimer.seconds / 60);
+    const s = state.durationTimer.seconds % 60;
+    durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
-      if (myTeam === "T") {
-        state.score.T++;
-        updateScoreDisplay();
-        alert("Your team wins!");
-      } else {
-        state.score.T++;
-        updateScoreDisplay();
-        alert("Enemy team wins!");
-      }
+    // -----------------------------------------
+    // BOMB TIMER (falls aktiv)
+    // -----------------------------------------
+    if (state.bomb.planted) {
+      state.bomb.timer--;
 
-      // Stop animation
-      state.animation.running = false;
-      if (state.animation.frameRequest) {
-        cancelAnimationFrame(state.animation.frameRequest);
-        state.animation.frameRequest = null;
-      }
+      const bs = state.bomb.timer;
+      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
-      // Stop duration timer
-      if (state.durationTimer.interval) {
-        clearInterval(state.durationTimer.interval);
-        state.durationTimer.interval = null;
+      if (bs <= 0) {
+        clearInterval(state.unifiedInterval);
+        state.unifiedInterval = null;
+
+        // Explosion → T wins
+        const myTeam = state.currentTeam;
+
+        if (myTeam === "T") {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Your team wins!");
+        } else {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Enemy team wins!");
+        }
+
+        // Stop animation
+        state.animation.running = false;
+        if (state.animation.frameRequest) {
+          cancelAnimationFrame(state.animation.frameRequest);
+          state.animation.frameRequest = null;
+        }
+
+        return;
       }
     }
+
   }, 830);
 }
 
@@ -2909,46 +2927,40 @@ btnPause.addEventListener('click', () => {
   state.paused = !state.paused;
 
   if (state.paused) {
-    // Pause animation
+    // Animation pausieren
     if (state.animation.frameRequest) {
       cancelAnimationFrame(state.animation.frameRequest);
       state.animation.frameRequest = null;
     }
 
-    // Pause round timer
+    // Round timer pausieren
     if (state.roundTimer.interval) {
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
     }
 
-    // Pause duration timer
-    if (state.durationTimer.interval) {
-      clearInterval(state.durationTimer.interval);
-      state.durationTimer.interval = null;
-    }
-
-    // Pause bomb timer
-    if (state.bomb.interval) {
-      clearInterval(state.bomb.interval);
-      state.bomb.interval = null;
+    // Unified tick pausieren
+    if (state.unifiedInterval) {
+      clearInterval(state.unifiedInterval);
+      state.unifiedInterval = null;
     }
 
   } else {
-    // Continue animation
+    // Animation fortsetzen
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    // Continue round timer ONLY if bomb not planted
-    if (!state.bomb.planted && state.roundTimer.remaining > 0) {
-      startRoundTimer();
-    }
-
-    // Continue duration timer
-    startDurationTimer();
-
-    // Continue bomb timer if bomb planted
+    // Wenn Bombe liegt → unified tick starten
     if (state.bomb.planted) {
-      startBombTimer();
+      startUnifiedTick();
+    } else {
+      // Sonst normalen Round Timer starten
+      if (state.roundTimer.remaining > 0) {
+        startRoundTimer();
+      }
+
+      // Duration Timer starten
+      startDurationTimer();
     }
   }
 });
