@@ -1846,10 +1846,16 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
   if (!player.done) return;
 
-  // -----------------------------------------
-  // NEW: If bomb is planted → run to bomb
-  // -----------------------------------------
-  if (state.animation.checkWin && state.bomb.planted && state.bomb.x !== null) {
+  // ---------------------------------------------------------
+  // NEW: Only CT (isEnemy === true) run to the bomb
+  // Terrorists (isEnemy === false) must NOT run to the bomb
+  // ---------------------------------------------------------
+  if (
+    state.animation.checkWin &&
+    state.bomb.planted &&
+    state.bomb.x !== null &&
+    player.isEnemy === true   // <--- THIS is the key condition
+  ) {
 
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
@@ -1857,7 +1863,6 @@ function autoRushIfNoActions(player, enemies) {
     let path = findPathAStar(start, goal);
     if (!path || path.length < 2) return;
 
-    // Remove wall‑intersecting segments
     function segmentHitsWall(a, b) {
       const steps = 20;
       for (let i = 0; i <= steps; i++) {
@@ -1906,9 +1911,10 @@ function autoRushIfNoActions(player, enemies) {
     return;
   }
 
-  // -----------------------------------------
+  // ---------------------------------------------------------
   // OLD BEHAVIOR: run to nearest enemy
-  // -----------------------------------------
+  // (applies to both T and CT when bomb is NOT planted)
+  // ---------------------------------------------------------
   if (enemies.length === 0) return;
 
   let nearest = null;
