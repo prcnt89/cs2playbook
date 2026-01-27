@@ -796,28 +796,41 @@ const state = {
   tabs: {},
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
-    animation: {
-  running: false,
-  players: [],
-  frameRequest: null,
-  lastTime: null,
-  grenades: [],
-  shootAccumulator: 0,
-  molotovAccumulator: 0,
-  checkWin: false
-},
-paused: false,
-roundTimer: {
-  interval: null,
-  running: false
-},
-durationTimer: {
-  interval: null,
-  running: false,
-  seconds: 0,
-  preCountdown: null
-},
-score: { T: 0, CT: 0 }
+
+  animation: {
+    running: false,
+    players: [],
+    frameRequest: null,
+    lastTime: null,
+    grenades: [],
+    shootAccumulator: 0,
+    molotovAccumulator: 0,
+    checkWin: false
+  },
+
+  paused: false,
+
+  roundTimer: {
+    interval: null,
+    running: false,
+    remaining: 115
+  },
+
+  durationTimer: {
+    interval: null,
+    running: false,
+    seconds: 0,
+    preCountdown: null
+  },
+
+  score: { T: 0, CT: 0 },
+
+  // NEW: Bomb system
+  bomb: {
+    planted: false,
+    timer: 40,
+    interval: null
+  }
 };
 
 /* -------------------------------------------------------
@@ -2134,35 +2147,42 @@ function animationLoop(timestamp) {
       }
 
       /* PLANT BOMB */
-      if (path.type === 'PlantBomb') {
-        p.x = path.x;
-        p.y = path.y;
+if (path.type === 'PlantBomb') {
+  p.x = path.x;
+  p.y = path.y;
 
-        path.progress += remaining;
+  path.progress += remaining;
 
-        if (path.progress >= path.duration && !path.planted) {
-          path.planted = true;
+  if (path.progress >= path.duration && !path.planted) {
+    path.planted = true;
 
-          const bomb = document.createElement('div');
-          bomb.style.position = 'absolute';
-          bomb.style.width = '14px';
-          bomb.style.height = '7px';
-          bomb.style.left = path.x + 'px';
-          bomb.style.top = path.y + 'px';
-          bomb.style.transform = 'translate(-50%, -50%)';
-          bomb.style.background = '#777';
-          bomb.style.border = '1px solid #333';
-          bomb.style.animation = 'bombBlink 0.8s infinite';
-          playersLayerBottom.appendChild(bomb);
-        }
+    // Bomb visual
+    const bomb = document.createElement('div');
+    bomb.style.position = 'absolute';
+    bomb.style.width = '14px';
+    bomb.style.height = '7px';
+    bomb.style.left = path.x + 'px';
+    bomb.style.top = path.y + 'px';
+    bomb.style.transform = 'translate(-50%, -50%)';
+    bomb.style.background = '#777';
+    bomb.style.border = '1px solid #333';
+    bomb.style.animation = 'bombBlink 0.8s infinite';
+    playersLayerBottom.appendChild(bomb);
 
-        if (path.progress >= path.duration) {
-          p.currentPathIndex++;
-        }
+    // NEW: Start bomb timer ONLY in PlayVs mode
+    if (state.animation.checkWin && !state.bomb.planted) {
+      state.bomb.planted = true;
+      startBombTimer();
+    }
+  }
 
-        remaining = 0;
-        continue;
-      }
+  if (path.progress >= path.duration) {
+    p.currentPathIndex++;
+  }
+
+  remaining = 0;
+  continue;
+}
 
       /* UTILITY */
       if (
@@ -2605,6 +2625,14 @@ function resetRoundTimer() {
   state.score.T = 0;
   state.score.CT = 0;
   updateScoreDisplay();
+
+// Reset bomb
+state.bomb.planted = false;
+if (state.bomb.interval) {
+  clearInterval(state.bomb.interval);
+  state.bomb.interval = null;
+}
+state.bomb.timer = 40;
 }
 
 function startPreCountdown(callback) {
@@ -2639,7 +2667,7 @@ function startRoundTimer() {
     // ---------------------------------------------
     // TIMEOUT ONLY MATTERS IN VS-ENEMY MODE
     // ---------------------------------------------
-    if (totalSeconds <= 0) {
+    if (totalSeconds <= 0 && !state.bomb.planted) {
 
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
@@ -2712,6 +2740,55 @@ function startDurationTimer() {
     const s = seconds % 60;
 
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+  }, 830);
+}
+
+function startBombTimer() {
+  // Stop round timer immediately
+  if (state.roundTimer.interval) {
+    clearInterval(state.roundTimer.interval);
+    state.roundTimer.interval = null;
+  }
+
+  state.bomb.timer = 40;
+  roundTimeDisplay.textContent = "0:40";
+
+  state.bomb.interval = setInterval(() => {
+    state.bomb.timer--;
+
+    const s = state.bomb.timer;
+    roundTimeDisplay.textContent = `0:${s.toString().padStart(2, "0")}`;
+
+    if (s <= 0) {
+      clearInterval(state.bomb.interval);
+      state.bomb.interval = null;
+
+      // Bomb explodes → T wins
+      const myTeam = state.currentTeam;
+
+      if (myTeam === "T") {
+        state.score.T++;
+        updateScoreDisplay();
+        alert("Your team wins!");
+      } else {
+        state.score.T++;
+        updateScoreDisplay();
+        alert("Enemy team wins!");
+      }
+
+      // Stop animation
+      state.animation.running = false;
+      if (state.animation.frameRequest) {
+        cancelAnimationFrame(state.animation.frameRequest);
+        state.animation.frameRequest = null;
+      }
+
+      // Stop duration timer
+      if (state.durationTimer.interval) {
+        clearInterval(state.durationTimer.interval);
+        state.durationTimer.interval = null;
+      }
+    }
   }, 830);
 }
 
@@ -2818,6 +2895,14 @@ updateTacticInfoDisplay();
 btnStop.addEventListener('click', () => {
   stopAnimation();
   resetRoundTimer();
+
+// Stop bomb timer
+if (state.bomb.interval) {
+  clearInterval(state.bomb.interval);
+  state.bomb.interval = null;
+}
+state.bomb.planted = false;
+state.bomb.timer = 40;
 });
 
 btnPause.addEventListener('click', () => {
@@ -2842,17 +2927,29 @@ btnPause.addEventListener('click', () => {
       state.durationTimer.interval = null;
     }
 
+    // Pause bomb timer
+    if (state.bomb.interval) {
+      clearInterval(state.bomb.interval);
+      state.bomb.interval = null;
+    }
+
   } else {
     // Continue animation
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    // Continue timer (DON'T restart!)
-    if (state.roundTimer.remaining > 0) {
+    // Continue round timer ONLY if bomb not planted
+    if (!state.bomb.planted && state.roundTimer.remaining > 0) {
       startRoundTimer();
     }
 
+    // Continue duration timer
     startDurationTimer();
+
+    // Continue bomb timer if bomb planted
+    if (state.bomb.planted) {
+      startBombTimer();
+    }
   }
 });
 
