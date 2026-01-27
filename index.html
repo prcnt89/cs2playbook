@@ -2499,6 +2499,20 @@ function checkWinCondition() {
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
+
+    // ---------------------------------------------
+    // NEW: If bomb is planted → stop bomb logic NOW
+    // ---------------------------------------------
+    if (state.bomb.planted) {
+      state.bomb.planted = false;
+      state.bomb.timer = 40;
+
+      if (state.unifiedInterval) {
+        clearInterval(state.unifiedInterval);
+        state.unifiedInterval = null;
+      }
+    }
+
     state.score[state.currentTeam]++;
     updateScoreDisplay();
     alert("Your team wins!");
@@ -2507,6 +2521,20 @@ function checkWinCondition() {
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
+
+    // ---------------------------------------------
+    // NEW: If bomb is planted → stop bomb logic NOW
+    // ---------------------------------------------
+    if (state.bomb.planted) {
+      state.bomb.planted = false;
+      state.bomb.timer = 40;
+
+      if (state.unifiedInterval) {
+        clearInterval(state.unifiedInterval);
+        state.unifiedInterval = null;
+      }
+    }
+
     const enemy = state.currentTeam === "T" ? "CT" : "T";
     state.score[enemy]++;
     updateScoreDisplay();
@@ -2803,6 +2831,24 @@ function startUnifiedTick() {
       const bs = state.bomb.timer;
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
+      // ---------------------------------------------
+      // NEW: If CT are all dead → stop bomb immediately
+      // ---------------------------------------------
+      const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
+      if (aliveCT.length === 0) {
+        // Stop bomb logic
+        state.bomb.planted = false;
+        state.bomb.timer = 40;
+
+        clearInterval(state.unifiedInterval);
+        state.unifiedInterval = null;
+
+        return;
+      }
+
+      // ---------------------------------------------
+      // Explosion
+      // ---------------------------------------------
       if (bs <= 0) {
         clearInterval(state.unifiedInterval);
         state.unifiedInterval = null;
