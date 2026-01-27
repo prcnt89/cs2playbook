@@ -2606,7 +2606,6 @@ function checkWinCondition() {
     state.score[state.currentTeam]++;
     updateScoreDisplay();
     alert("Your team wins!");
-stopAllTimers();
     return true;
   }
 
@@ -2630,7 +2629,6 @@ stopAllTimers();
     state.score[enemy]++;
     updateScoreDisplay();
     alert("Enemy team wins!");
-stopAllTimers();
     return true;
   }
 
@@ -2779,46 +2777,6 @@ function resetRoundTimer() {
   }
 }
 
-function stopAllTimers() {
-
-  // Stop round timer
-  if (state.roundTimer.interval) {
-    clearInterval(state.roundTimer.interval);
-    state.roundTimer.interval = null;
-  }
-
-  // Stop duration timer
-  if (state.durationTimer.interval) {
-    clearInterval(state.durationTimer.interval);
-    state.durationTimer.interval = null;
-  }
-
-  // Stop duration pre-countdown
-  if (state.durationTimer.preCountdown) {
-    clearInterval(state.durationTimer.preCountdown);
-    state.durationTimer.preCountdown = null;
-  }
-
-  // Stop round pre-countdown
-  if (state.roundTimer.preCountdown) {
-    clearInterval(state.roundTimer.preCountdown);
-    state.roundTimer.preCountdown = null;
-  }
-
-  // Stop unified tick (bomb + defuse)
-  if (state.unifiedInterval) {
-    clearInterval(state.unifiedInterval);
-    state.unifiedInterval = null;
-  }
-
-  // Stop animation
-  state.animation.running = false;
-  if (state.animation.frameRequest) {
-    cancelAnimationFrame(state.animation.frameRequest);
-    state.animation.frameRequest = null;
-  }
-}
-
 function startPreCountdown(callback) {
   let timeLeft = 2;
   roundTimeDisplay.textContent = timeLeft;
@@ -2867,13 +2825,11 @@ function startRoundTimer() {
           state.score.CT++;
           updateScoreDisplay();
           alert("Your team wins!");
-stopAllTimers();
         } else {
           // You are T → CT wins
           state.score.CT++;
           updateScoreDisplay();
           alert("Enemy team wins!");
-stopAllTimers();
         }
 
         // Stop animation
@@ -2979,12 +2935,10 @@ function startUnifiedTick() {
               state.score.CT++;
               updateScoreDisplay();
               alert("Your team wins!");
-stopAllTimers();
             } else {
               state.score.CT++;
               updateScoreDisplay();
               alert("Enemy team wins!");
-stopAllTimers();
             }
 
             // Stop animation
@@ -3020,12 +2974,10 @@ stopAllTimers();
           state.score.T++;
           updateScoreDisplay();
           alert("Your team wins!");
-stopAllTimers();
         } else {
           state.score.T++;
           updateScoreDisplay();
           alert("Enemy team wins!");
-stopAllTimers();
         }
 
         state.animation.running = false;
