@@ -1744,7 +1744,7 @@ function buildAnimationState() {
         };
       }
 
-      // UTILITY
+      // GRENADE / FLASH / SMOKE / MOLOTOV
       if (
         path.type === 'Grenade' ||
         path.type === 'Flashbang' ||
@@ -1774,7 +1774,7 @@ function buildAnimationState() {
           x: path.x,
           y: path.y,
           progress: 0,
-          duration: 3.5,
+          duration: 3.5, // seconds
           planted: false
         };
       }
@@ -1829,8 +1829,7 @@ function buildAnimationState() {
       waitRemaining: null,
       done: false,
       el: null,
-      team: state.currentTeam,   // <<< WICHTIG: echtes Team
-      isEnemy: false,
+      isEnemy: false,          // eigenes Team
       hp: STARTING_HP,
       alive: true
     });
@@ -1848,26 +1847,35 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // CT DEFUSE LOGIC (only CT moves to bomb)
+  // CT DEFUSE LOGIC (only in VS mode)
   // ---------------------------------------------------------
   if (
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    player.team === "CT"
+    player.isEnemy === true // CT only
   ) {
 
     const dx = player.x - state.bomb.x;
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
+    // ---------------------------------------------------------
+    // CT reached bomb → start/continue defuse
+    // ---------------------------------------------------------
     if (dist < 12) {
+
+      // Start defuse timer if not running
       if (!player.defuseRemaining) {
-        player.defuseRemaining = 5;
+        player.defuseRemaining = 5; // 5 seconds defuse time
       }
-      return;
+
+      return; // CT stays on bomb
     }
 
+    // ---------------------------------------------------------
+    // Otherwise: run to bomb
+    // ---------------------------------------------------------
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
@@ -1919,13 +1927,6 @@ function autoRushIfNoActions(player, enemies) {
     player.distanceOnSegment = 0;
     player.done = false;
 
-    return;
-  }
-
-  // ---------------------------------------------------------
-  // TERRORISTS NEVER DEFUSE
-  // ---------------------------------------------------------
-  if (player.team === "T" && state.bomb.planted) {
     return;
   }
 
@@ -2007,7 +2008,6 @@ function buildEnemyAnimationState(enemyPlayers) {
 
   enemyPlayers.forEach(player => {
     const animPaths = player.paths.map(path => {
-
       if (path.type === 'Wait') {
         return {
           type: 'Wait',
@@ -2088,7 +2088,7 @@ function buildEnemyAnimationState(enemyPlayers) {
     const startPos = animPaths[0]?.segments?.[0]?.from || { x: player.x, y: player.y };
 
     animPlayers.push({
-      color: "#333",
+      color: "#333",        // dark grey
       x: startPos.x,
       y: startPos.y,
       paths: animPaths,
@@ -2098,7 +2098,6 @@ function buildEnemyAnimationState(enemyPlayers) {
       waitRemaining: null,
       done: false,
       el: null,
-      team: (state.currentTeam === "T" ? "CT" : "T"), // <<< WICHTIG: echtes Team
       isEnemy: true,
       hp: STARTING_HP,
       alive: true
@@ -2578,62 +2577,50 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveT = state.animation.players.filter(p => p.alive && p.team === "T");
-  const aliveCT = state.animation.players.filter(p => p.alive && p.team === "CT");
+  const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
+  const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // ---------------------------------------------------------
-  // DRAW
-  // ---------------------------------------------------------
-  if (aliveT.length === 0 && aliveCT.length === 0) {
+  // Draw
+  if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     stopAllTimers();
     state.animation.running = false;
     alert("Draw!");
     return true;
   }
 
-  // ---------------------------------------------------------
-  // ALLE CT TOT → T gewinnt SOFORT (egal ob Bombe liegt)
-  // ---------------------------------------------------------
-  if (aliveCT.length === 0) {
+  // My team wins
+  if (aliveEnemyTeam.length === 0) {
+
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
+
     stopAllTimers();
     state.animation.running = false;
 
-    state.score.T++;
+    state.score[state.currentTeam]++;
     updateScoreDisplay();
-
-    if (state.currentTeam === "T") alert("Your team wins!");
-    else alert("Enemy team wins!");
-
+    alert("Your team wins!");
     return true;
   }
 
-  // ---------------------------------------------------------
-  // ALLE T TOT
-  // ---------------------------------------------------------
-  if (aliveT.length === 0) {
+  // Enemy wins
+  if (aliveMyTeam.length === 0) {
 
-    // Bombe NICHT gelegt → CT gewinnt SOFORT
-    if (!state.bomb.planted) {
-      stopAllTimers();
-      state.animation.running = false;
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
 
-      state.score.CT++;
-      updateScoreDisplay();
+    stopAllTimers();
+    state.animation.running = false;
 
-      if (state.currentTeam === "CT") alert("Your team wins!");
-      else alert("Enemy team wins!");
-
-      return true;
-    }
-
-    // Bombe GELEGT → CT gewinnt NICHT sofort
-    // CT muss ENTschärfen → Sieg kommt in startUnifiedTick()
-    return false;
+    const enemy = state.currentTeam === "T" ? "CT" : "T";
+    state.score[enemy]++;
+    updateScoreDisplay();
+    alert("Enemy team wins!");
+    return true;
   }
 
-  // ---------------------------------------------------------
-  // Beide Teams leben → Runde läuft weiter
-  // ---------------------------------------------------------
   return false;
 }
 
@@ -2838,24 +2825,25 @@ function startBombTimer() {
 }
 
 function startUnifiedTick() {
+  // Falls bereits aktiv → stoppen und neu starten
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
   }
 
   state.unifiedInterval = setInterval(() => {
 
-    // ---------------------------------------------------------
-    // DURATION TIMER
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       DURATION TIMER
+    --------------------------------------------------------- */
     state.durationTimer.seconds++;
     const m = Math.floor(state.durationTimer.seconds / 60);
     const s = state.durationTimer.seconds % 60;
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
 
-    // ---------------------------------------------------------
-    // ROUND TIMER (nur wenn Bombe NICHT liegt)
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       ROUND TIMER (nur wenn Bombe NICHT liegt)
+    --------------------------------------------------------- */
     if (!state.bomb.planted && state.roundTimer.remaining > 0) {
 
       state.roundTimer.remaining--;
@@ -2864,7 +2852,7 @@ function startUnifiedTick() {
       const rs = state.roundTimer.remaining % 60;
       roundTimeDisplay.textContent = `${rm}:${rs.toString().padStart(2, "0")}`;
 
-      // TIMEOUT (VS mode only)
+      // TIMEOUT (nur VS Enemy)
       if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
         stopAllTimers();
@@ -2874,23 +2862,23 @@ function startUnifiedTick() {
         state.score.CT++;
         updateScoreDisplay();
 
-        if (state.currentTeam === "CT") alert("Your team wins!");
-        else alert("Enemy team wins!");
+        if (state.currentTeam === "CT") {
+          alert("Your team wins!");
+        } else {
+          alert("Enemy team wins!");
+        }
 
         return;
       }
     }
 
 
-    // ---------------------------------------------------------
-    // DEFUSE CHECK (ONLY CT CAN DEFUSE)
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       DEFUSE CHECK (CT steht auf Bombe)
+    --------------------------------------------------------- */
     if (state.bomb.planted) {
 
-      const CTs = state.animation.players.filter(p =>
-        p.alive &&
-        p.team === "CT"
-      );
+      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
       CTs.forEach(ct => {
         if (ct.defuseRemaining != null) {
@@ -2907,8 +2895,11 @@ function startUnifiedTick() {
             state.score.CT++;
             updateScoreDisplay();
 
-            if (state.currentTeam === "CT") alert("Your team wins!");
-            else alert("Enemy team wins!");
+            if (state.currentTeam === "CT") {
+              alert("Your team wins!");
+            } else {
+              alert("Enemy team wins!");
+            }
 
             return;
           }
@@ -2917,9 +2908,9 @@ function startUnifiedTick() {
     }
 
 
-    // ---------------------------------------------------------
-    // BOMB TIMER (Explosion)
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       BOMB TIMER (Explosion)
+    --------------------------------------------------------- */
     if (state.bomb.planted) {
 
       state.bomb.timer--;
@@ -2932,18 +2923,23 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
-        // Explosion → T gewinnt IMMER
-        state.score.T++;
-        updateScoreDisplay();
+        const myTeam = state.currentTeam;
 
-        if (state.currentTeam === "T") alert("Your team wins!");
-        else alert("Enemy team wins!");
+        if (myTeam === "T") {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Your team wins!");
+        } else {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Enemy team wins!");
+        }
 
         return;
       }
     }
 
-  }, 1000);
+  }, 1000); // 1-second tick
 }
 
 function stopAllTimers() {
