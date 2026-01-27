@@ -1847,28 +1847,30 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // NEW: Only CT run to the bomb AND wait 5 seconds on it
+  // CT DEFUSE LOGIC (only in VS mode)
   // ---------------------------------------------------------
   if (
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    player.isEnemy === true
+    player.isEnemy === true // CT only
   ) {
 
-    // Distance check: is CT already at the bomb?
     const dx = player.x - state.bomb.x;
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
     // ---------------------------------------------------------
-    // NEW: If CT reached the bomb → wait 5 seconds
+    // CT reached bomb → start/continue defuse
     // ---------------------------------------------------------
-    if (dist < 10) { // 10px tolerance
-      if (!player.waitRemaining) {
-        player.waitRemaining = 5; // 5 seconds wait
+    if (dist < 12) {
+
+      // Start defuse timer if not running
+      if (!player.defuseRemaining) {
+        player.defuseRemaining = 5; // 5 seconds defuse time
       }
-      return;
+
+      return; // CT stays on bomb
     }
 
     // ---------------------------------------------------------
@@ -2895,53 +2897,77 @@ function startBombTimer() {
 }
 
 function startUnifiedTick() {
-  // Falls schon aktiv → stoppen
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
   }
 
   state.unifiedInterval = setInterval(() => {
 
-    // -----------------------------------------
-    // DURATION TIMER
-    // -----------------------------------------
+    // Duration timer
     state.durationTimer.seconds++;
     const m = Math.floor(state.durationTimer.seconds / 60);
     const s = state.durationTimer.seconds % 60;
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
-    // -----------------------------------------
-    // BOMB TIMER (falls aktiv)
-    // -----------------------------------------
+    // ---------------------------------------------------------
+    // DEFUSE CHECK (CT standing on bomb)
+    // ---------------------------------------------------------
+    if (state.bomb.planted) {
+
+      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+
+      CTs.forEach(ct => {
+        if (ct.defuseRemaining != null) {
+          ct.defuseRemaining -= 1;
+
+          // CT successfully defused
+          if (ct.defuseRemaining <= 0) {
+
+            // Stop bomb
+            state.bomb.planted = false;
+            state.bomb.timer = 40;
+
+            clearInterval(state.unifiedInterval);
+            state.unifiedInterval = null;
+
+            // Determine winner
+            if (state.currentTeam === "CT") {
+              state.score.CT++;
+              updateScoreDisplay();
+              alert("Your team wins!");
+            } else {
+              state.score.CT++;
+              updateScoreDisplay();
+              alert("Enemy team wins!");
+            }
+
+            // Stop animation
+            state.animation.running = false;
+            if (state.animation.frameRequest) {
+              cancelAnimationFrame(state.animation.frameRequest);
+              state.animation.frameRequest = null;
+            }
+
+            return;
+          }
+        }
+      });
+    }
+
+    // ---------------------------------------------------------
+    // BOMB TIMER
+    // ---------------------------------------------------------
     if (state.bomb.planted) {
       state.bomb.timer--;
 
       const bs = state.bomb.timer;
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
-      // ---------------------------------------------
-      // NEW: If CT are all dead → stop bomb immediately
-      // ---------------------------------------------
-      const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
-      if (aliveCT.length === 0) {
-        // Stop bomb logic
-        state.bomb.planted = false;
-        state.bomb.timer = 40;
-
-        clearInterval(state.unifiedInterval);
-        state.unifiedInterval = null;
-
-        return;
-      }
-
-      // ---------------------------------------------
       // Explosion
-      // ---------------------------------------------
       if (bs <= 0) {
         clearInterval(state.unifiedInterval);
         state.unifiedInterval = null;
 
-        // Explosion → T wins
         const myTeam = state.currentTeam;
 
         if (myTeam === "T") {
@@ -2954,7 +2980,6 @@ function startUnifiedTick() {
           alert("Enemy team wins!");
         }
 
-        // Stop animation
         state.animation.running = false;
         if (state.animation.frameRequest) {
           cancelAnimationFrame(state.animation.frameRequest);
@@ -2965,7 +2990,7 @@ function startUnifiedTick() {
       }
     }
 
-  }, 830);
+  }, 1000); // 1-second tick for defuse accuracy
 }
 
 /* -------------------------------------------------------
