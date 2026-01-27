@@ -1847,7 +1847,7 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // CT DEFUSE LOGIC (only in VS mode)
+  // CT DEFUSE LOGIC (only CT moves to bomb)
   // ---------------------------------------------------------
   if (
     state.animation.checkWin &&
@@ -1860,12 +1860,9 @@ function autoRushIfNoActions(player, enemies) {
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
-    // ---------------------------------------------------------
     // CT reached bomb → start/continue defuse
-    // ---------------------------------------------------------
     if (dist < 12) {
 
-      // Start defuse timer if not running
       if (!player.defuseRemaining) {
         player.defuseRemaining = 5; // 5 seconds defuse time
       }
@@ -1873,9 +1870,7 @@ function autoRushIfNoActions(player, enemies) {
       return; // CT stays on bomb
     }
 
-    // ---------------------------------------------------------
     // Otherwise: run to bomb
-    // ---------------------------------------------------------
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
@@ -1928,6 +1923,13 @@ function autoRushIfNoActions(player, enemies) {
     player.done = false;
 
     return;
+  }
+
+  // ---------------------------------------------------------
+  // TERRORISTS SHOULD *NOT* RUN TO THE BOMB
+  // ---------------------------------------------------------
+  if (player.isEnemy === false && state.bomb.planted) {
+    return; // T does nothing
   }
 
   // ---------------------------------------------------------
@@ -2873,40 +2875,39 @@ function startUnifiedTick() {
     }
 
 
-    /* ---------------------------------------------------------
-       DEFUSE CHECK (CT steht auf Bombe)
-    --------------------------------------------------------- */
-    if (state.bomb.planted) {
+    // ---------------------------------------------------------
+// DEFUSE CHECK (ONLY CT CAN DEFUSE)
+// ---------------------------------------------------------
+if (state.bomb.planted) {
 
-      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const CTs = state.animation.players.filter(p => p.alive && p.isEnemy === true);
 
-      CTs.forEach(ct => {
-        if (ct.defuseRemaining != null) {
-          ct.defuseRemaining -= 1;
+  CTs.forEach(ct => {
+    if (ct.defuseRemaining != null) {
+      ct.defuseRemaining -= 1;
 
-          if (ct.defuseRemaining <= 0) {
+      if (ct.defuseRemaining <= 0) {
 
-            stopAllTimers();
-            state.animation.running = false;
+        stopAllTimers();
+        state.animation.running = false;
 
-            state.bomb.planted = false;
-            state.bomb.timer = 40;
+        state.bomb.planted = false;
+        state.bomb.timer = 40;
 
-            state.score.CT++;
-            updateScoreDisplay();
+        state.score.CT++;
+        updateScoreDisplay();
 
-            if (state.currentTeam === "CT") {
-              alert("Your team wins!");
-            } else {
-              alert("Enemy team wins!");
-            }
-
-            return;
-          }
+        if (state.currentTeam === "CT") {
+          alert("Your team wins!");
+        } else {
+          alert("Enemy team wins!");
         }
-      });
-    }
 
+        return;
+      }
+    }
+  });
+}
 
     /* ---------------------------------------------------------
        BOMB TIMER (Explosion)
