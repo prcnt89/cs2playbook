@@ -1852,7 +1852,7 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // -----------------------------------------
-  // NEW: If bomb planted → CT runs to bomb
+  // CT LOGIC: If bomb planted → run to bomb
   // -----------------------------------------
   if (state.animation.checkWin && state.bomb.planted && player.isEnemy) {
     const bombPos = state.bomb.position;
@@ -1890,7 +1890,7 @@ function autoRushIfNoActions(player, enemies) {
   }
 
   // -----------------------------------------
-  // ORIGINAL: run to nearest enemy
+  // T LOGIC: Normal autorush to nearest enemy
   // -----------------------------------------
   if (enemies.length === 0) return;
 
@@ -2179,9 +2179,6 @@ if (path.type === 'PlantBomb') {
   if (path.progress >= path.duration && !path.planted) {
     path.planted = true;
 
-// Save bomb position
-state.bomb.position = { x: path.x, y: path.y };
-
     // Bomb visual
     const bomb = document.createElement('div');
     bomb.style.position = 'absolute';
@@ -2195,13 +2192,20 @@ state.bomb.position = { x: path.x, y: path.y };
     bomb.style.animation = 'bombBlink 0.8s infinite';
     playersLayerBottom.appendChild(bomb);
 
-    // NEW: Start bomb timer ONLY in PlayVs mode
+    // Save bomb position
+    state.bomb.position = { x: path.x, y: path.y };
+
+    // Start bomb timer only in PlayVs mode
     if (state.animation.checkWin && !state.bomb.planted) {
       state.bomb.planted = true;
       startBombTimer();
     }
   }
 
+  // IMPORTANT: DO NOT STOP PLAYER
+  // p.done = true;  <-- REMOVE THIS
+
+  // Just continue to next path
   if (path.progress >= path.duration) {
     p.currentPathIndex++;
   }
