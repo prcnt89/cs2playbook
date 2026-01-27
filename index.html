@@ -2585,6 +2585,7 @@ function checkWinCondition() {
 
   // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
+    state.winDeclared = true;
     stopAllTimers();
     alert("Draw!");
     return true;
@@ -2592,23 +2593,21 @@ function checkWinCondition() {
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
+    state.winDeclared = true;
     stopAllTimers();
-
     state.score[state.currentTeam]++;
     updateScoreDisplay();
-
     alert("Your team wins!");
     return true;
   }
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
+    state.winDeclared = true;
     stopAllTimers();
-
     const enemy = state.currentTeam === "T" ? "CT" : "T";
     state.score[enemy]++;
     updateScoreDisplay();
-
     alert("Enemy team wins!");
     return true;
   }
@@ -2869,15 +2868,18 @@ function startUnifiedTick() {
     /* ---------------------------------------------------------
    DEFUSE CHECK (CT steht auf Bombe)
 --------------------------------------------------------- */
-if (!state.winDeclared && state.bomb.planted) {
+if (state.bomb.planted && !state.winDeclared) {
 
   const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
   CTs.forEach(ct => {
     if (ct.defuseRemaining != null) {
+
       ct.defuseRemaining -= 1;
 
       if (ct.defuseRemaining <= 0 && !state.winDeclared) {
+
+        state.winDeclared = true;
 
         stopAllTimers();
 
@@ -2900,7 +2902,7 @@ if (!state.winDeclared && state.bomb.planted) {
     /* ---------------------------------------------------------
    BOMB TIMER (Explosion)
 --------------------------------------------------------- */
-if (!state.winDeclared && state.bomb.planted) {
+if (state.bomb.planted && !state.winDeclared) {
 
   state.bomb.timer--;
 
@@ -2908,6 +2910,8 @@ if (!state.winDeclared && state.bomb.planted) {
   roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
   if (bs <= 0 && !state.winDeclared) {
+
+    state.winDeclared = true;
 
     stopAllTimers();
 
@@ -2929,9 +2933,6 @@ if (!state.winDeclared && state.bomb.planted) {
 }
 
 function stopAllTimers() {
-  if (state.winDeclared) return;
-
-  state.winDeclared = true;
 
   // Round timer
   if (state.roundTimer.interval) {
