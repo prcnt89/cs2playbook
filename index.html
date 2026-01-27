@@ -1847,16 +1847,33 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // NEW: Only CT (isEnemy === true) run to the bomb
-  // Terrorists (isEnemy === false) must NOT run to the bomb
+  // NEW: Only CT run to the bomb AND wait 5 seconds on it
   // ---------------------------------------------------------
   if (
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    player.isEnemy === true   // <--- THIS is the key condition
+    player.isEnemy === true
   ) {
 
+    // Distance check: is CT already at the bomb?
+    const dx = player.x - state.bomb.x;
+    const dy = player.y - state.bomb.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    // ---------------------------------------------------------
+    // NEW: If CT reached the bomb → wait 5 seconds
+    // ---------------------------------------------------------
+    if (dist < 10) { // 10px tolerance
+      if (!player.waitRemaining) {
+        player.waitRemaining = 5; // 5 seconds wait
+      }
+      return;
+    }
+
+    // ---------------------------------------------------------
+    // Otherwise: run to bomb
+    // ---------------------------------------------------------
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
@@ -1913,7 +1930,6 @@ function autoRushIfNoActions(player, enemies) {
 
   // ---------------------------------------------------------
   // OLD BEHAVIOR: run to nearest enemy
-  // (applies to both T and CT when bomb is NOT planted)
   // ---------------------------------------------------------
   if (enemies.length === 0) return;
 
