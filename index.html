@@ -825,12 +825,13 @@ const state = {
 
   score: { T: 0, CT: 0 },
 
-  // NEW: Bomb system
-  bomb: {
+ bomb: {
     planted: false,
     timer: 40,
-    interval: null
-  }
+    interval: null,
+    x: null,
+    y: null
+}
 };
 
 /* -------------------------------------------------------
@@ -1844,6 +1845,70 @@ function buildAnimationState() {
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
   if (!player.done) return;
+
+  // -----------------------------------------
+  // NEW: If bomb is planted → run to bomb
+  // -----------------------------------------
+  if (state.animation.checkWin && state.bomb.planted && state.bomb.x !== null) {
+
+    const start = worldToGrid(player.x, player.y);
+    const goal = worldToGrid(state.bomb.x, state.bomb.y);
+
+    let path = findPathAStar(start, goal);
+    if (!path || path.length < 2) return;
+
+    // Remove wall‑intersecting segments
+    function segmentHitsWall(a, b) {
+      const steps = 20;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = a.x + (b.x - a.x) * t;
+        const y = a.y + (b.y - a.y) * t;
+        const g = worldToGrid(x, y);
+        if (walkGrid[g.gy][g.gx] === 0) return true;
+      }
+      return false;
+    }
+
+    const cleaned = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!segmentHitsWall(path[i], path[i+1])) {
+        cleaned.push(path[i]);
+      }
+    }
+    cleaned.push(path[path.length - 1]);
+
+    if (cleaned.length < 2) return;
+
+    const rushPath = {
+      type: "Rush",
+      segments: [],
+      totalLength: 0,
+      speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
+    };
+
+    for (let i = 0; i < cleaned.length - 1; i++) {
+      const a = cleaned[i];
+      const b = cleaned[i+1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      rushPath.segments.push({ from:a, to:b, length:len });
+      rushPath.totalLength += len;
+    }
+
+    player.paths.push(rushPath);
+    player.currentPathIndex = player.paths.length - 1;
+    player.currentSegmentIndex = 0;
+    player.distanceOnSegment = 0;
+    player.done = false;
+
+    return;
+  }
+
+  // -----------------------------------------
+  // OLD BEHAVIOR: run to nearest enemy
+  // -----------------------------------------
   if (enemies.length === 0) return;
 
   let nearest = null;
@@ -1868,9 +1933,6 @@ function autoRushIfNoActions(player, enemies) {
   let path = findPathAStar(start, goal);
   if (!path || path.length < 2) return;
 
-  // -----------------------------------------
-  // FIX: Remove segments that hit walls
-  // -----------------------------------------
   function segmentHitsWall(a, b) {
     const steps = 20;
     for (let i = 0; i <= steps; i++) {
@@ -2155,6 +2217,10 @@ if (path.type === 'PlantBomb') {
 
   if (path.progress >= path.duration && !path.planted) {
     path.planted = true;
+
+// Save bomb position globally
+state.bomb.x = path.x;
+state.bomb.y = path.y;
 
     // Bomb visual
     const bomb = document.createElement('div');
