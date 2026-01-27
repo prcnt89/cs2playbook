@@ -2141,7 +2141,7 @@ function animationLoop(timestamp) {
   ------------------------------------------------------- */
   state.animation.players.forEach(p => {
     if (!p.alive) return;
-    if (p.done || p.paths.length === 0) return;
+    if (p.paths.length === 0) return;
 
     let remaining = dt;
 
@@ -2170,49 +2170,46 @@ function animationLoop(timestamp) {
       }
 
       /* PLANT BOMB */
-if (path.type === 'PlantBomb') {
-  p.x = path.x;
-  p.y = path.y;
+      if (path.type === 'PlantBomb') {
+        p.x = path.x;
+        p.y = path.y;
 
-  path.progress += remaining;
+        path.progress += remaining;
 
-  if (path.progress >= path.duration && !path.planted) {
-    path.planted = true;
+        if (path.progress >= path.duration && !path.planted) {
+          path.planted = true;
 
-    // Bomb visual
-    const bomb = document.createElement('div');
-    bomb.style.position = 'absolute';
-    bomb.style.width = '14px';
-    bomb.style.height = '7px';
-    bomb.style.left = path.x + 'px';
-    bomb.style.top = path.y + 'px';
-    bomb.style.transform = 'translate(-50%, -50%)';
-    bomb.style.background = '#777';
-    bomb.style.border = '1px solid #333';
-    bomb.style.animation = 'bombBlink 0.8s infinite';
-    playersLayerBottom.appendChild(bomb);
+          // Bomb visual
+          const bomb = document.createElement('div');
+          bomb.style.position = 'absolute';
+          bomb.style.width = '14px';
+          bomb.style.height = '7px';
+          bomb.style.left = path.x + 'px';
+          bomb.style.top = path.y + 'px';
+          bomb.style.transform = 'translate(-50%, -50%)';
+          bomb.style.background = '#777';
+          bomb.style.border = '1px solid #333';
+          bomb.style.animation = 'bombBlink 0.8s infinite';
+          playersLayerBottom.appendChild(bomb);
 
-    // Save bomb position
-    state.bomb.position = { x: path.x, y: path.y };
+          // Save bomb position
+          state.bomb.position = { x: path.x, y: path.y };
 
-    // Start bomb timer only in PlayVs mode
-    if (state.animation.checkWin && !state.bomb.planted) {
-      state.bomb.planted = true;
-      startBombTimer();
-    }
-  }
+          // Start bomb timer only in PlayVs mode
+          if (state.animation.checkWin && !state.bomb.planted) {
+            state.bomb.planted = true;
+            startBombTimer();
+          }
+        }
 
-  // IMPORTANT: DO NOT STOP PLAYER
-  // p.done = true;  <-- REMOVE THIS
+        // DO NOT STOP PLAYER
+        if (path.progress >= path.duration) {
+          p.currentPathIndex++;
+        }
 
-  // Just continue to next path
-  if (path.progress >= path.duration) {
-    p.currentPathIndex++;
-  }
-
-  remaining = 0;
-  continue;
-}
+        remaining = 0;
+        continue;
+      }
 
       /* UTILITY */
       if (
@@ -2291,7 +2288,15 @@ if (path.type === 'PlantBomb') {
             p.currentSegmentIndex = 0;
             p.distanceOnSegment = 0;
 
+            // IMPORTANT FIX:
+            // PlantBomb must NOT stop the player
             if (p.currentPathIndex >= p.paths.length) {
+              const lastPath = p.paths[p.paths.length - 1];
+              if (state.animation.checkWin && lastPath && lastPath.type === "PlantBomb") {
+                p.done = true; // scripted actions done
+                break;
+              }
+
               p.done = true;
               break;
             }
@@ -2392,122 +2397,103 @@ if (path.type === 'PlantBomb') {
   });
 
   /* -------------------------------------------------------
-   WIN CHECK (VS ENEMY ONLY)
-------------------------------------------------------- */
-if (state.animation.checkWin) {
+     DEFUSE CHECK (CT stands on bomb for 5 seconds)
+  ------------------------------------------------------- */
+  if (state.animation.checkWin && state.bomb.planted) {
+    const bomb = state.bomb.position;
 
-  // If time already expired → winner already handled in startRoundTimer()
-  if (state.roundTimer.remaining <= 0) {
-    return;
+    const ctPlayers = state.animation.players.filter(p => p.isEnemy && p.alive);
+
+    let defuser = null;
+
+    ctPlayers.forEach(p => {
+      const dx = p.x - bomb.x;
+      const dy = p.y - bomb.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (dist <= 12) {
+        defuser = p;
+      }
+    });
+
+    if (defuser) {
+      if (!state.bomb.defuse.active) {
+        state.bomb.defuse.active = true;
+        state.bomb.defuse.timer = 5;
+        state.bomb.defuse.player = defuser;
+      } else {
+        state.bomb.defuse.timer -= dt;
+
+        if (state.bomb.defuse.timer <= 0) {
+          const myTeam = state.currentTeam;
+
+          if (myTeam === "CT") {
+            state.score.CT++;
+            updateScoreDisplay();
+            alert("Your team wins!");
+          } else {
+            state.score.CT++;
+            updateScoreDisplay();
+            alert("Enemy team wins!");
+          }
+
+          state.animation.running = false;
+          if (state.animation.frameRequest) {
+            cancelAnimationFrame(state.animation.frameRequest);
+            state.animation.frameRequest = null;
+          }
+
+          if (state.unifiedInterval) {
+            clearInterval(state.unifiedInterval);
+            state.unifiedInterval = null;
+          }
+
+          return;
+        }
+      }
+    } else {
+      state.bomb.defuse.active = false;
+      state.bomb.defuse.timer = 5;
+      state.bomb.defuse.player = null;
+    }
   }
-
-  if (checkWinCondition()) {
-    state.animation.running = false;
-    state.animation.frameRequest = null;
-
-    if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-    if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
-
-    return;
-  }
-}
 
   /* -------------------------------------------------------
-   STOP CONDITION (NORMAL SIMULATE ONLY)
-------------------------------------------------------- */
-if (!state.animation.checkWin) {
-  if (allPlayersDone && state.animation.grenades.length === 0) {
+     WIN CHECK (VS ENEMY ONLY)
+  ------------------------------------------------------- */
+  if (state.animation.checkWin) {
 
-    // Animation stoppen
-    state.animation.running = false;
-    state.animation.frameRequest = null;
-
-    // Round timer stoppen
-    if (state.roundTimer.interval) {
-      clearInterval(state.roundTimer.interval);
-      state.roundTimer.interval = null;
+    if (state.roundTimer.remaining <= 0 && !state.bomb.planted) {
+      return;
     }
 
-    // Unified tick stoppen (WICHTIG!)
-    if (state.unifiedInterval) {
-      clearInterval(state.unifiedInterval);
-      state.unifiedInterval = null;
-    }
+    if (checkWinCondition()) {
+      state.animation.running = false;
+      state.animation.frameRequest = null;
 
-    // Duration timer NICHT weiterlaufen lassen
-    if (state.durationTimer.interval) {
-      clearInterval(state.durationTimer.interval);
-      state.durationTimer.interval = null;
-    }
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-    return;
+      return;
+    }
   }
-}
 
-/* -------------------------------------------------------
-   DEFUSE CHECK (CT stands on bomb for 5 seconds)
-------------------------------------------------------- */
-if (state.animation.checkWin && state.bomb.planted) {
-  const bomb = state.bomb.position;
+  /* -------------------------------------------------------
+     STOP CONDITION (NORMAL SIMULATE ONLY)
+  ------------------------------------------------------- */
+  if (!state.animation.checkWin) {
+    if (allPlayersDone && state.animation.grenades.length === 0) {
 
-  const ctPlayers = state.animation.players.filter(p => p.isEnemy && p.alive);
+      state.animation.running = false;
+      state.animation.frameRequest = null;
 
-  let defuser = null;
+      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
+      if (state.unifiedInterval) clearInterval(state.unifiedInterval);
+      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
 
-  ctPlayers.forEach(p => {
-    const dx = p.x - bomb.x;
-    const dy = p.y - bomb.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-
-    if (dist <= 12) { // standing on bomb
-      defuser = p;
+      return;
     }
-  });
-
-  if (defuser) {
-    if (!state.bomb.defuse.active) {
-      state.bomb.defuse.active = true;
-      state.bomb.defuse.timer = 5;
-      state.bomb.defuse.player = defuser;
-    } else {
-      state.bomb.defuse.timer -= dt;
-
-      if (state.bomb.defuse.timer <= 0) {
-        // CT wins
-        const myTeam = state.currentTeam;
-
-        if (myTeam === "CT") {
-          state.score.CT++;
-          updateScoreDisplay();
-          alert("Your team wins!");
-        } else {
-          state.score.CT++;
-          updateScoreDisplay();
-          alert("Enemy team wins!");
-        }
-
-        // Stop everything
-        state.animation.running = false;
-        if (state.animation.frameRequest) {
-          cancelAnimationFrame(state.animation.frameRequest);
-          state.animation.frameRequest = null;
-        }
-
-        if (state.unifiedInterval) {
-          clearInterval(state.unifiedInterval);
-          state.unifiedInterval = null;
-        }
-
-        return;
-      }
-    }
-  } else {
-    // CT left the bomb → reset defuse
-    state.bomb.defuse.active = false;
-    state.bomb.defuse.timer = 5;
-    state.bomb.defuse.player = null;
   }
-}
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
 }
