@@ -791,7 +791,6 @@ function isFlashed(player) {
 ------------------------------------------------------- */
 
 const state = {
-  winDeclared: false,
   currentMap: maps[0],
   currentTeam: 'T',
   tabs: {},
@@ -2578,23 +2577,27 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  if (state.winDeclared) return true;
-
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
   // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
-    state.winDeclared = true;
     stopAllTimers();
+    state.animation.running = false;
     alert("Draw!");
     return true;
   }
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
-    state.winDeclared = true;
+
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
+
     stopAllTimers();
+    state.animation.running = false;
+
     state.score[state.currentTeam]++;
     updateScoreDisplay();
     alert("Your team wins!");
@@ -2603,8 +2606,14 @@ function checkWinCondition() {
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
-    state.winDeclared = true;
+
+    // Stop bomb logic
+    state.bomb.planted = false;
+    state.bomb.timer = 40;
+
     stopAllTimers();
+    state.animation.running = false;
+
     const enemy = state.currentTeam === "T" ? "CT" : "T";
     state.score[enemy]++;
     updateScoreDisplay();
@@ -2722,7 +2731,6 @@ if (g.type === 'Flashbang') {
 ------------------------------------------------------- */
 
 function resetRoundTimer() {
-state.winDeclared = false;
   // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
@@ -2866,74 +2874,75 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-   DEFUSE CHECK (CT steht auf Bombe)
---------------------------------------------------------- */
-if (state.bomb.planted && !state.winDeclared) {
+       DEFUSE CHECK (CT steht auf Bombe)
+    --------------------------------------------------------- */
+    if (state.bomb.planted) {
 
-  const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  CTs.forEach(ct => {
-    if (ct.defuseRemaining != null) {
+      CTs.forEach(ct => {
+        if (ct.defuseRemaining != null) {
+          ct.defuseRemaining -= 1;
 
-      ct.defuseRemaining -= 1;
+          if (ct.defuseRemaining <= 0) {
 
-      if (ct.defuseRemaining <= 0 && !state.winDeclared) {
+            stopAllTimers();
+            state.animation.running = false;
 
-        state.winDeclared = true;
+            state.bomb.planted = false;
+            state.bomb.timer = 40;
 
-        stopAllTimers();
+            state.score.CT++;
+            updateScoreDisplay();
 
-        state.bomb.planted = false;
-        state.bomb.timer = 40;
+            if (state.currentTeam === "CT") {
+              alert("Your team wins!");
+            } else {
+              alert("Enemy team wins!");
+            }
 
-        state.score.CT++;
-        updateScoreDisplay();
-
-        if (state.currentTeam === "CT") {
-          alert("Your team wins!");
-        } else {
-          alert("Enemy team wins!");
+            return;
+          }
         }
-      }
+      });
     }
-  });
-}
+
 
     /* ---------------------------------------------------------
-   BOMB TIMER (Explosion)
---------------------------------------------------------- */
-if (state.bomb.planted && !state.winDeclared) {
+       BOMB TIMER (Explosion)
+    --------------------------------------------------------- */
+    if (state.bomb.planted) {
 
-  state.bomb.timer--;
+      state.bomb.timer--;
 
-  const bs = state.bomb.timer;
-  roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
+      const bs = state.bomb.timer;
+      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
-  if (bs <= 0 && !state.winDeclared) {
+      if (bs <= 0) {
 
-    state.winDeclared = true;
+        stopAllTimers();
+        state.animation.running = false;
 
-    stopAllTimers();
+        const myTeam = state.currentTeam;
 
-    const myTeam = state.currentTeam;
+        if (myTeam === "T") {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Your team wins!");
+        } else {
+          state.score.T++;
+          updateScoreDisplay();
+          alert("Enemy team wins!");
+        }
 
-    if (myTeam === "T") {
-      state.score.T++;
-      updateScoreDisplay();
-      alert("Your team wins!");
-    } else {
-      state.score.T++;
-      updateScoreDisplay();
-      alert("Enemy team wins!");
+        return;
+      }
     }
-  }
-}
 
   }, 1000); // 1-second tick
 }
 
 function stopAllTimers() {
-
   // Round timer
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
