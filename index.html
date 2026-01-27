@@ -825,12 +825,18 @@ const state = {
 
   score: { T: 0, CT: 0 },
 
-  // NEW: Bomb system
   bomb: {
     planted: false,
     timer: 40,
     interval: null
-  }
+  },
+
+defuse: {
+  active: false,
+  timer: 0,
+  player: null
+}
+
 };
 
 /* -------------------------------------------------------
@@ -1844,6 +1850,48 @@ function buildAnimationState() {
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
   if (!player.done) return;
+
+  // -----------------------------------------
+  // NEW: If bomb planted → CT runs to bomb
+  // -----------------------------------------
+  if (state.animation.checkWin && state.bomb.planted && player.isEnemy) {
+    const bombPos = state.bomb.position;
+    if (!bombPos) return;
+
+    const start = worldToGrid(player.x, player.y);
+    const goal = worldToGrid(bombPos.x, bombPos.y);
+
+    let path = findPathAStar(start, goal);
+    if (!path || path.length < 2) return;
+
+    const rushPath = {
+      type: "Rush",
+      segments: [],
+      totalLength: 0,
+      speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
+    };
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i];
+      const b = path[i+1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      rushPath.segments.push({ from:a, to:b, length:len });
+      rushPath.totalLength += len;
+    }
+
+    player.paths.push(rushPath);
+    player.currentPathIndex = player.paths.length - 1;
+    player.currentSegmentIndex = 0;
+    player.distanceOnSegment = 0;
+    player.done = false;
+    return;
+  }
+
+  // -----------------------------------------
+  // ORIGINAL: run to nearest enemy
+  // -----------------------------------------
   if (enemies.length === 0) return;
 
   let nearest = null;
@@ -1868,31 +1916,6 @@ function autoRushIfNoActions(player, enemies) {
   let path = findPathAStar(start, goal);
   if (!path || path.length < 2) return;
 
-  // -----------------------------------------
-  // FIX: Remove segments that hit walls
-  // -----------------------------------------
-  function segmentHitsWall(a, b) {
-    const steps = 20;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const x = a.x + (b.x - a.x) * t;
-      const y = a.y + (b.y - a.y) * t;
-      const g = worldToGrid(x, y);
-      if (walkGrid[g.gy][g.gx] === 0) return true;
-    }
-    return false;
-  }
-
-  const cleaned = [];
-  for (let i = 0; i < path.length - 1; i++) {
-    if (!segmentHitsWall(path[i], path[i+1])) {
-      cleaned.push(path[i]);
-    }
-  }
-  cleaned.push(path[path.length - 1]);
-
-  if (cleaned.length < 2) return;
-
   const rushPath = {
     type: "Rush",
     segments: [],
@@ -1900,9 +1923,9 @@ function autoRushIfNoActions(player, enemies) {
     speed: SPEED_RUSH * mapSpeedMultiplier[state.currentMap]
   };
 
-  for (let i = 0; i < cleaned.length - 1; i++) {
-    const a = cleaned[i];
-    const b = cleaned[i+1];
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i+1];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.sqrt(dx*dx + dy*dy);
@@ -2155,6 +2178,9 @@ if (path.type === 'PlantBomb') {
 
   if (path.progress >= path.duration && !path.planted) {
     path.planted = true;
+
+// Save bomb position
+state.bomb.position = { x: path.x, y: path.y };
 
     // Bomb visual
     const bomb = document.createElement('div');
@@ -2411,6 +2437,71 @@ if (!state.animation.checkWin) {
     }
 
     return;
+  }
+}
+
+/* -------------------------------------------------------
+   DEFUSE CHECK (CT stands on bomb for 5 seconds)
+------------------------------------------------------- */
+if (state.animation.checkWin && state.bomb.planted) {
+  const bomb = state.bomb.position;
+
+  const ctPlayers = state.animation.players.filter(p => p.isEnemy && p.alive);
+
+  let defuser = null;
+
+  ctPlayers.forEach(p => {
+    const dx = p.x - bomb.x;
+    const dy = p.y - bomb.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist <= 12) { // standing on bomb
+      defuser = p;
+    }
+  });
+
+  if (defuser) {
+    if (!state.bomb.defuse.active) {
+      state.bomb.defuse.active = true;
+      state.bomb.defuse.timer = 5;
+      state.bomb.defuse.player = defuser;
+    } else {
+      state.bomb.defuse.timer -= dt;
+
+      if (state.bomb.defuse.timer <= 0) {
+        // CT wins
+        const myTeam = state.currentTeam;
+
+        if (myTeam === "CT") {
+          state.score.CT++;
+          updateScoreDisplay();
+          alert("Your team wins!");
+        } else {
+          state.score.CT++;
+          updateScoreDisplay();
+          alert("Enemy team wins!");
+        }
+
+        // Stop everything
+        state.animation.running = false;
+        if (state.animation.frameRequest) {
+          cancelAnimationFrame(state.animation.frameRequest);
+          state.animation.frameRequest = null;
+        }
+
+        if (state.unifiedInterval) {
+          clearInterval(state.unifiedInterval);
+          state.unifiedInterval = null;
+        }
+
+        return;
+      }
+    }
+  } else {
+    // CT left the bomb → reset defuse
+    state.bomb.defuse.active = false;
+    state.bomb.defuse.timer = 5;
+    state.bomb.defuse.player = null;
   }
 }
 
