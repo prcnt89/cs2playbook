@@ -2383,19 +2383,36 @@ if (state.animation.checkWin) {
 }
 
   /* -------------------------------------------------------
-     STOP CONDITION (NORMAL SIMULATE ONLY)
-  ------------------------------------------------------- */
-  if (!state.animation.checkWin) {
-    if (allPlayersDone && state.animation.grenades.length === 0) {
-      state.animation.running = false;
-      state.animation.frameRequest = null;
+   STOP CONDITION (NORMAL SIMULATE ONLY)
+------------------------------------------------------- */
+if (!state.animation.checkWin) {
+  if (allPlayersDone && state.animation.grenades.length === 0) {
 
-      if (state.roundTimer.interval) clearInterval(state.roundTimer.interval);
-      if (state.durationTimer.interval) clearInterval(state.durationTimer.interval);
+    // Animation stoppen
+    state.animation.running = false;
+    state.animation.frameRequest = null;
 
-      return;
+    // Round timer stoppen
+    if (state.roundTimer.interval) {
+      clearInterval(state.roundTimer.interval);
+      state.roundTimer.interval = null;
     }
+
+    // Unified tick stoppen (WICHTIG!)
+    if (state.unifiedInterval) {
+      clearInterval(state.unifiedInterval);
+      state.unifiedInterval = null;
+    }
+
+    // Duration timer NICHT weiterlaufen lassen
+    if (state.durationTimer.interval) {
+      clearInterval(state.durationTimer.interval);
+      state.durationTimer.interval = null;
+    }
+
+    return;
   }
+}
 
   state.animation.frameRequest = requestAnimationFrame(animationLoop);
 }
