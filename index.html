@@ -2624,32 +2624,39 @@ if (g.type === 'Flashbang') {
 ------------------------------------------------------- */
 
 function resetRoundTimer() {
-  // Round time
-  clearInterval(state.roundTimer.interval);
-  state.roundTimer.interval = null;
-  state.roundTimer.remaining = 115;
-  roundTimeDisplay.textContent = "1:55";
+  // Round timer stoppen
+  if (state.roundTimer.interval) {
+    clearInterval(state.roundTimer.interval);
+    state.roundTimer.interval = null;
+  }
 
-  // Duration
-  clearInterval(state.durationTimer.interval);
-  clearInterval(state.durationTimer.preCountdown);
-  state.durationTimer.interval = null;
-  state.durationTimer.preCountdown = null;
+  // Unified tick stoppen (WICHTIG!)
+  if (state.unifiedInterval) {
+    clearInterval(state.unifiedInterval);
+    state.unifiedInterval = null;
+  }
+
+  // Duration timer zurücksetzen
   state.durationTimer.seconds = 0;
   durationDisplay.textContent = "0:00";
 
-  // Reset score
+  // Round time zurücksetzen
+  state.roundTimer.remaining = 115;
+  roundTimeDisplay.textContent = "1:55";
+
+  // Score zurücksetzen
   state.score.T = 0;
   state.score.CT = 0;
   updateScoreDisplay();
 
-// Reset bomb
-state.bomb.planted = false;
-if (state.bomb.interval) {
-  clearInterval(state.bomb.interval);
-  state.bomb.interval = null;
-}
-state.bomb.timer = 40;
+  // Bombenstatus zurücksetzen
+  state.bomb.planted = false;
+  state.bomb.timer = 40;
+
+  if (state.bomb.interval) {
+    clearInterval(state.bomb.interval);
+    state.bomb.interval = null;
+  }
 }
 
 function startPreCountdown(callback) {
