@@ -2578,50 +2578,75 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
-  const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
-  const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const aliveT = state.animation.players.filter(p => p.alive && !p.isEnemy);
+  const aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // Draw
-  if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
-    stopAllTimers();
-    state.animation.running = false;
-    alert("Draw!");
-    return true;
-  }
+  const T_alive = aliveT.length > 0;
+  const CT_alive = aliveCT.length > 0;
+  const bombPlanted = state.bomb.planted;
 
-  // My team wins
-  if (aliveEnemyTeam.length === 0) {
-
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
+  /* ---------------------------------------------------------
+     1) ROUND TIMER ABGELAUFEN → CT gewinnt SOFORT
+  --------------------------------------------------------- */
+  if (state.roundTimer.remaining <= 0) {
 
     stopAllTimers();
     state.animation.running = false;
 
-    state.score[state.currentTeam]++;
+    state.score.CT++;
     updateScoreDisplay();
-    alert("Your team wins!");
+
+    if (state.currentTeam === "CT") alert("Your team wins!");
+    else alert("Enemy team wins!");
+
     return true;
   }
 
-  // Enemy wins
-  if (aliveMyTeam.length === 0) {
-
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
+  /* ---------------------------------------------------------
+     2) ALLE CT TOT → T gewinnt SOFORT (egal ob Bombe liegt)
+  --------------------------------------------------------- */
+  if (!CT_alive) {
 
     stopAllTimers();
     state.animation.running = false;
 
-    const enemy = state.currentTeam === "T" ? "CT" : "T";
-    state.score[enemy]++;
+    state.score.T++;
     updateScoreDisplay();
-    alert("Enemy team wins!");
+
+    if (state.currentTeam === "T") alert("Your team wins!");
+    else alert("Enemy team wins!");
+
     return true;
   }
 
+  /* ---------------------------------------------------------
+     3) ALLE T TOT + Bombe liegt → KEIN sofortiger Sieg
+        → CT muss defusen (Explosion entscheidet sonst)
+  --------------------------------------------------------- */
+  if (!T_alive && bombPlanted) {
+    return false; // kein sofortiger Sieg
+  }
+
+  /* ---------------------------------------------------------
+     4) ALLE T TOT + Bombe liegt NICHT → CT gewinnt SOFORT
+  --------------------------------------------------------- */
+  if (!T_alive && !bombPlanted) {
+
+    stopAllTimers();
+    state.animation.running = false;
+
+    state.score.CT++;
+    updateScoreDisplay();
+
+    if (state.currentTeam === "CT") alert("Your team wins!");
+    else alert("Enemy team wins!");
+
+    return true;
+  }
+
+  /* ---------------------------------------------------------
+     5) KEINE Siegbedingung erfüllt → weiter simulieren
+  --------------------------------------------------------- */
   return false;
 }
 
