@@ -2463,6 +2463,14 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
+
+// Wenn ein Gewinner feststeht → Bomben-Timer stoppen
+if (state.bombTimer.interval) {
+  clearInterval(state.bombTimer.interval);
+  state.bombTimer.interval = null;
+}
+state.bombPlanted = false;
+
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
@@ -2768,24 +2776,35 @@ function startDurationTimer() {
   let seconds = state.durationTimer.seconds ?? 0;
 
   state.durationTimer.interval = setInterval(() => {
+    // Duration hochzählen
     seconds++;
     state.durationTimer.seconds = seconds;
 
-    // Duration anzeigen
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     durationDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
 
-    // -----------------------------
-    // Bomben-Timer synchron ticken
-    // -----------------------------
+    // ---------------------------------------------------
+    // Bomben-Timer synchron ticken (nur VS-Enemy)
+    // ---------------------------------------------------
     if (state.animation.checkWin && state.bombPlanted) {
+
       state.bombTimer.remaining--;
 
       const bs = state.bombTimer.remaining;
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
+      // Wenn Bombe abgelaufen ist → Explosion
       if (bs <= 0) {
+
+        // Runde bereits entschieden? → NICHT explodieren
+        const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
+        const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
+
+        if (aliveMyTeam.length === 0 || aliveEnemyTeam.length === 0) {
+          return; // Runde ist schon vorbei
+        }
+
         handleBombExplosion();
       }
     }
