@@ -2592,14 +2592,23 @@ function checkWinCondition() {
   }
 
   // ---------------------------------------------------------
-  // TERRORISTS ALIVE? → normaler Ablauf
+  // ALLE CT TOT → T gewinnt SOFORT (egal ob Bombe liegt)
   // ---------------------------------------------------------
-  if (aliveT.length > 0 && aliveCT.length > 0) {
-    return false; // Runde läuft weiter
+  if (aliveCT.length === 0) {
+    stopAllTimers();
+    state.animation.running = false;
+
+    state.score.T++;
+    updateScoreDisplay();
+
+    if (state.currentTeam === "T") alert("Your team wins!");
+    else alert("Enemy team wins!");
+
+    return true;
   }
 
   // ---------------------------------------------------------
-  // ALLE TERRORISTEN TOT
+  // ALLE T TOT
   // ---------------------------------------------------------
   if (aliveT.length === 0) {
 
@@ -2617,27 +2626,14 @@ function checkWinCondition() {
       return true;
     }
 
-    // Bombe GELEGT → CT gewinnt NICHT sofort!
-    // CT muss ENTschärfen → Sieg wird in startUnifiedTick() ausgelöst
+    // Bombe GELEGT → CT gewinnt NICHT sofort
+    // CT muss ENTschärfen → Sieg kommt in startUnifiedTick()
     return false;
   }
 
   // ---------------------------------------------------------
-  // ALLE CT TOT → T gewinnt SOFORT (egal ob Bombe liegt)
+  // Beide Teams leben → Runde läuft weiter
   // ---------------------------------------------------------
-  if (aliveCT.length === 0) {
-    stopAllTimers();
-    state.animation.running = false;
-
-    state.score.T++;
-    updateScoreDisplay();
-
-    if (state.currentTeam === "T") alert("Your team wins!");
-    else alert("Enemy team wins!");
-
-    return true;
-  }
-
   return false;
 }
 
