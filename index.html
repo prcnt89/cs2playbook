@@ -794,6 +794,7 @@ const state = {
   currentMap: maps[0],
   currentTeam: 'T',
   tabs: {},
+  defuseResolved: false,
   currentAction: null,
   dragging: { active:false, playerId:null, pathId:null },
 
@@ -2830,6 +2831,9 @@ function startUnifiedTick() {
     clearInterval(state.unifiedInterval);
   }
 
+  // Reset Defuse-Flag
+  state.defuseResolved = false;
+
   state.unifiedInterval = setInterval(() => {
 
     /* ---------------------------------------------------------
@@ -2876,15 +2880,18 @@ function startUnifiedTick() {
     /* ---------------------------------------------------------
        DEFUSE CHECK (CT steht auf Bombe)
     --------------------------------------------------------- */
-    if (state.bomb.planted) {
+    if (state.bomb.planted && !state.defuseResolved) {
 
       const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-      CTs.forEach(ct => {
+      for (const ct of CTs) {
         if (ct.defuseRemaining != null) {
           ct.defuseRemaining -= 1;
 
           if (ct.defuseRemaining <= 0) {
+
+            // WICHTIG: Sieg nur einmal auslösen
+            state.defuseResolved = true;
 
             stopAllTimers();
             state.animation.running = false;
@@ -2904,14 +2911,14 @@ function startUnifiedTick() {
             return;
           }
         }
-      });
+      }
     }
 
 
     /* ---------------------------------------------------------
        BOMB TIMER (Explosion)
     --------------------------------------------------------- */
-    if (state.bomb.planted) {
+    if (state.bomb.planted && !state.defuseResolved) {
 
       state.bomb.timer--;
 
@@ -2919,6 +2926,9 @@ function startUnifiedTick() {
       roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
       if (bs <= 0) {
+
+        // Explosion → Sieg nur einmal
+        state.defuseResolved = true;
 
         stopAllTimers();
         state.animation.running = false;
