@@ -2587,9 +2587,9 @@ function checkWinCondition() {
 
   const bombPlanted = state.bomb.planted;
 
-  // -------------------------------
-  // DRAW (beide Teams tot)
-  // -------------------------------
+  /* ---------------------------------------------------------
+     DRAW (beide Teams tot)
+  --------------------------------------------------------- */
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     state.winLocked = true;
     stopAllTimers();
@@ -2598,14 +2598,18 @@ function checkWinCondition() {
     return true;
   }
 
-  // -------------------------------
-  // TERRORISTS WIN (CT alle tot)
-  // Bombe egal
-  // -------------------------------
+  /* ---------------------------------------------------------
+     MY TEAM WINS (enemy team dead)
+     BUT: if my team = CT AND bomb is planted → NO WIN YET
+  --------------------------------------------------------- */
   if (aliveEnemyTeam.length === 0) {
 
-    // Wenn Bombe liegt → T gewinnt sofort
-    // Wenn Bombe nicht liegt → T gewinnt auch
+    // If my team is CT and bomb is planted → must defuse
+    if (bombPlanted && state.currentTeam === "CT") {
+      return false; // continue simulation
+    }
+
+    // Otherwise → normal win
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2620,18 +2624,19 @@ function checkWinCondition() {
     return true;
   }
 
-  // -------------------------------
-  // COUNTER‑TERRORISTS WIN?
-  // Nur wenn Bombe NICHT liegt
-  // -------------------------------
+  /* ---------------------------------------------------------
+     ENEMY TEAM WINS (my team dead)
+     BUT: if my team = T AND bomb is planted → NO WIN YET
+     (T can still win by explosion)
+  --------------------------------------------------------- */
   if (aliveMyTeam.length === 0) {
 
-    // Wenn Bombe liegt → CT gewinnt NICHT!
-    if (bombPlanted) {
-      return false; // warten auf Explosion oder Defuse
+    // If my team is T and bomb is planted → wait for explosion
+    if (bombPlanted && state.currentTeam === "T") {
+      return false; // continue simulation
     }
 
-    // Bombe liegt NICHT → CT gewinnt
+    // Otherwise → normal CT win
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2855,6 +2860,7 @@ function startBombTimer() {
 }
 
 function startUnifiedTick() {
+
   // Falls bereits aktiv → stoppen und neu starten
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
@@ -2883,41 +2889,7 @@ function startUnifiedTick() {
       roundTimeDisplay.textContent = `${rm}:${rs.toString().padStart(2, "0")}`;
 
       // TIMEOUT (nur VS Enemy)
-if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
-
-  if (state.winLocked) return;
-  state.winLocked = true;
-
-  stopAllTimers();
-  state.animation.running = false;
-
-  // CT gewinnt IMMER bei Timeout
-  state.score.CT++;
-  updateScoreDisplay();
-
-  if (state.currentTeam === "CT") {
-    alert("Your team wins!");
-  } else {
-    alert("Enemy team wins!");
-  }
-
-  return;
-}
-    }
-
-
-    /* ---------------------------------------------------------
-   DEFUSE CHECK (CT steht auf Bombe)
---------------------------------------------------------- */
-if (state.bomb.planted) {
-
-  const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
-
-  CTs.forEach(ct => {
-    if (ct.defuseRemaining != null) {
-      ct.defuseRemaining -= 1;
-
-      if (ct.defuseRemaining <= 0) {
+      if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
         if (state.winLocked) return;
         state.winLocked = true;
@@ -2925,9 +2897,7 @@ if (state.bomb.planted) {
         stopAllTimers();
         state.animation.running = false;
 
-        state.bomb.planted = false;
-        state.bomb.timer = 40;
-
+        // CT gewinnt IMMER bei Timeout
         state.score.CT++;
         updateScoreDisplay();
 
@@ -2940,40 +2910,77 @@ if (state.bomb.planted) {
         return;
       }
     }
-  });
-}
 
-/* ---------------------------------------------------------
-   BOMB TIMER (Explosion)
---------------------------------------------------------- */
-if (state.bomb.planted) {
 
-  state.bomb.timer--;
+    /* ---------------------------------------------------------
+       DEFUSE CHECK (CT steht auf Bombe)
+    --------------------------------------------------------- */
+    if (state.bomb.planted) {
 
-  const bs = state.bomb.timer;
-  roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
+      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  if (bs <= 0) {
+      CTs.forEach(ct => {
+        if (ct.defuseRemaining != null) {
+          ct.defuseRemaining -= 1;
 
-    if (state.winLocked) return;
-    state.winLocked = true;
+          if (ct.defuseRemaining <= 0) {
 
-    stopAllTimers();
-    state.animation.running = false;
+            if (state.winLocked) return;
+            state.winLocked = true;
 
-    // Explosion = T WIN (egal ob T tot)
-    state.score.T++;
-    updateScoreDisplay();
+            stopAllTimers();
+            state.animation.running = false;
 
-    if (state.currentTeam === "T") {
-      alert("Your team wins!");
-    } else {
-      alert("Enemy team wins!");
+            state.bomb.planted = false;
+            state.bomb.timer = 40;
+
+            state.score.CT++;
+            updateScoreDisplay();
+
+            if (state.currentTeam === "CT") {
+              alert("Your team wins!");
+            } else {
+              alert("Enemy team wins!");
+            }
+
+            return;
+          }
+        }
+      });
     }
 
-    return;
-  }
-}
+
+    /* ---------------------------------------------------------
+       BOMB TIMER (Explosion)
+    --------------------------------------------------------- */
+    if (state.bomb.planted) {
+
+      state.bomb.timer--;
+
+      const bs = state.bomb.timer;
+      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
+
+      if (bs <= 0) {
+
+        if (state.winLocked) return;
+        state.winLocked = true;
+
+        stopAllTimers();
+        state.animation.running = false;
+
+        // Explosion = T WIN (egal ob T tot)
+        state.score.T++;
+        updateScoreDisplay();
+
+        if (state.currentTeam === "T") {
+          alert("Your team wins!");
+        } else {
+          alert("Enemy team wins!");
+        }
+
+        return;
+      }
+    }
 
   }, 1000); // 1-second tick
 }
