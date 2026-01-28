@@ -1583,10 +1583,16 @@ if (action === 'Molotov') {
 if (action === 'Plant Bomb') {
     pushHistorySnapshot(state.currentMap, state.currentTeam);
 
+    // Spielerposition snappen
+    const snapped = snapToNearestWhite(player.x, player.y, { x: player.x, y: player.y });
+    player.x = snapped.x;
+    player.y = snapped.y;
+
+    // PlantBomb-Position snappen
     player.paths.push({
         type: 'PlantBomb',
-        x: player.x,
-        y: player.y
+        x: snapped.x,
+        y: snapped.y
     });
 
     renderPlayersAndPaths();
