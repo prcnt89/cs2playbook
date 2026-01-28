@@ -561,10 +561,13 @@ function getMaskBrightness(x, y) {
 // -------------------------------------------------------
 // SNAP PLAYER OR PATH POINT TO NEAREST WHITE PIXEL
 // -------------------------------------------------------
+// -------------------------------------------------------
+// SNAP PLAYER OR PATH POINT TO NEAREST WHITE PIXEL
+// -------------------------------------------------------
 function snapToNearestWhite(x, y) {
   if (!maskImageData) return { x, y };
 
-  const maxRadius = 25; // smooth & performant
+  const maxRadius = 25;
 
   for (let r = 0; r <= maxRadius; r++) {
     for (let dx = -r; dx <= r; dx++) {
@@ -572,7 +575,6 @@ function snapToNearestWhite(x, y) {
         const nx = x + dx;
         const ny = y + dy;
 
-        // Skip out-of-bounds
         if (nx < 0 || ny < 0 || nx >= 830 || ny >= 830) continue;
 
         if (getMaskBrightness(nx, ny) > 30) {
@@ -1064,12 +1066,19 @@ function renderCurrentTab() {
   const team = state.currentTeam;
   const tab = state.tabs[map][team];
 
+  // -------------------------------------------------------
+  // LOAD MASK + BUILD GRID (NEU!)
+  // -------------------------------------------------------
+  loadMaskForMap(map, () => {
+    buildWalkabilityGrid();
+  });
+
   const overviewPath = `./graphics/${map}.png`;
   overviewTopImg.src = overviewPath;
   overviewBottomImg.src = overviewPath;
 
   if (!tab.notes || tab.notes.trim() === '') {
-  notesArea.value =
+    notesArea.value =
 `Notes...
 
 🔵
@@ -1086,13 +1095,13 @@ function renderCurrentTab() {
 
 🟡
 • Notes...`;
-} else {
-  notesArea.value = tab.notes;
-}
+  } else {
+    notesArea.value = tab.notes;
+  }
 
   renderSavedTactics();
   renderPlayersAndPaths();
-renderStats();
+  renderStats();
 }
 
 function renderSavedTactics() {
@@ -1689,16 +1698,16 @@ function onPlayerMouseDown(e) {
     let x = ev.clientX - rect.left;
     let y = ev.clientY - rect.top;
 
-    // SNAP TO NEAREST WHITE PIXEL
+    // -------------------------------------------------------
+    // LIVE SNAPPING
+    // -------------------------------------------------------
     const snapped = snapToNearestWhite(x, y);
     x = snapped.x;
     y = snapped.y;
 
-    // Update player position
     player.x = Math.max(0, Math.min(830, x));
     player.y = Math.max(0, Math.min(830, y));
 
-    // Add snapped point to path
     const path = player.paths[state.dragging.pathId];
     path.points.push({ x: player.x, y: player.y });
 
