@@ -830,7 +830,8 @@ const state = {
     timer: 40,
     interval: null,
     x: null,
-    y: null
+    y: null,
+    defuser: null
 }
 };
 
@@ -1865,12 +1866,26 @@ function autoRushIfNoActions(player, enemies) {
     // ---------------------------------------------------------
     if (dist < 12) {
 
-      // Start defuse timer if not running
-      if (!player.defuseRemaining) {
-        player.defuseRemaining = 5; // 5 seconds defuse time
+      // ❗ Nur EIN CT darf defusen
+      if (state.bomb.defuser === null) {
+        state.bomb.defuser = player;   // Dies ist der einzige Defuser
+        player.defuseRemaining = 5;    // Start defuse
+      }
+
+      // ❗ Wenn dieser CT NICHT der Defuser ist → stehen bleiben, aber NICHT defusen
+      if (state.bomb.defuser !== player) {
+        return;
       }
 
       return; // CT stays on bomb
+    }
+
+    // ---------------------------------------------------------
+    // Wenn CT nicht am Bombenplatz ist → aber er ist der Defuser → Defuser verlieren
+    // ---------------------------------------------------------
+    if (state.bomb.defuser === player && dist >= 12) {
+      state.bomb.defuser = null;
+      player.defuseRemaining = null;
     }
 
     // ---------------------------------------------------------
@@ -2874,38 +2889,40 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       DEFUSE CHECK (CT steht auf Bombe)
-    --------------------------------------------------------- */
-    if (state.bomb.planted) {
+   DEFUSE CHECK (nur EIN CT darf defusen)
+--------------------------------------------------------- */
+if (state.bomb.planted) {
 
-      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const defuser = state.bomb.defuser;
 
-      CTs.forEach(ct => {
-        if (ct.defuseRemaining != null) {
-          ct.defuseRemaining -= 1;
+  // Kein Defuser aktiv → nichts tun
+  if (!defuser || !defuser.alive) {
+    state.bomb.defuser = null;
+  } else {
 
-          if (ct.defuseRemaining <= 0) {
+    defuser.defuseRemaining -= 1;
 
-            stopAllTimers();
-            state.animation.running = false;
+    if (defuser.defuseRemaining <= 0) {
 
-            state.bomb.planted = false;
-            state.bomb.timer = 40;
+      stopAllTimers();
+      state.animation.running = false;
 
-            state.score.CT++;
-            updateScoreDisplay();
+      state.bomb.planted = false;
+      state.bomb.timer = 40;
 
-            if (state.currentTeam === "CT") {
-              alert("Your team wins!");
-            } else {
-              alert("Enemy team wins!");
-            }
+      state.score.CT++;
+      updateScoreDisplay();
 
-            return;
-          }
-        }
-      });
+      if (state.currentTeam === "CT") {
+        alert("Your team wins!");
+      } else {
+        alert("Enemy team wins!");
+      }
+
+      return;
     }
+  }
+}
 
 
     /* ---------------------------------------------------------
