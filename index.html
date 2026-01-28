@@ -2865,6 +2865,7 @@ function startBombTimer() {
 
 function startUnifiedTick() {
 
+  // Falls bereits aktiv → stoppen und neu starten
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
   }
@@ -2881,7 +2882,7 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       ROUND TIMER (only if bomb NOT planted)
+       ROUND TIMER (nur wenn Bombe NICHT liegt)
     --------------------------------------------------------- */
     if (!state.bomb.planted && state.roundTimer.remaining > 0) {
 
@@ -2891,6 +2892,7 @@ function startUnifiedTick() {
       const rs = state.roundTimer.remaining % 60;
       roundTimeDisplay.textContent = `${rm}:${rs.toString().padStart(2, "0")}`;
 
+      // TIMEOUT (nur VS Enemy)
       if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
         if (state.winLocked) return;
@@ -2899,6 +2901,7 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
+        // CT gewinnt IMMER bei Timeout
         state.score.CT++;
         updateScoreDisplay();
 
@@ -2914,7 +2917,7 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       DEFUSE CHECK (CT on bomb)
+       DEFUSE CHECK (CT steht auf Bombe)
     --------------------------------------------------------- */
     if (state.bomb.planted) {
 
@@ -2969,6 +2972,7 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
+        // Explosion = T WIN (egal ob T tot)
         state.score.T++;
         updateScoreDisplay();
 
@@ -2982,7 +2986,7 @@ function startUnifiedTick() {
       }
     }
 
-  }, 1000);
+  }, 1000); // 1-second tick
 }
 
 function stopAllTimers() {
