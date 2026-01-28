@@ -2580,7 +2580,7 @@ function checkWinCondition() {
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // Draw
+  // --- DRAW ---
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     stopAllTimers();
     state.animation.running = false;
@@ -2588,35 +2588,26 @@ function checkWinCondition() {
     return true;
   }
 
-  // My team wins (only if bomb is NOT planted)
-if (aliveEnemyTeam.length === 0) {
-
-  // Wenn Bombe liegt → KEIN sofortiger Sieg
+  // --- IF BOMB IS PLANTED: KILLS DO NOT END THE ROUND ---
   if (state.bomb.planted) {
-    // CT müssen defusen → kein Sieger jetzt
+    // Wenn Bombe liegt → nur Explosion oder Defuse entscheidet
     return false;
   }
 
-  // Bombe liegt nicht → normaler Sieg
-  state.bomb.planted = false;
-  state.bomb.timer = 40;
+  // --- IF BOMB IS NOT PLANTED: KILLS DECIDE THE ROUND ---
+  if (aliveEnemyTeam.length === 0) {
+    // Gegner tot → mein Team gewinnt
+    stopAllTimers();
+    state.animation.running = false;
 
-  stopAllTimers();
-  state.animation.running = false;
+    state.score[state.currentTeam]++;
+    updateScoreDisplay();
+    alert("Your team wins!");
+    return true;
+  }
 
-  state.score[state.currentTeam]++;
-  updateScoreDisplay();
-  alert("Your team wins!");
-  return true;
-}
-
-  // Enemy wins
   if (aliveMyTeam.length === 0) {
-
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
-
+    // Mein Team tot → Gegner gewinnt
     stopAllTimers();
     state.animation.running = false;
 
