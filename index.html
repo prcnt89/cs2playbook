@@ -809,6 +809,7 @@ const state = {
   },
 
   paused: false,
+  winLocked: false,
 
   roundTimer: {
     interval: null,
@@ -2577,11 +2578,16 @@ function performShootingStep() {
 }
 
 function checkWinCondition() {
+
+  // Bereits ein Sieg ausgelöst? → sofort abbrechen
+  if (state.winLocked) return true;
+
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
   // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
+    state.winLocked = true;
     stopAllTimers();
     state.animation.running = false;
     alert("Draw!");
@@ -2590,8 +2596,8 @@ function checkWinCondition() {
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
+    state.winLocked = true;
 
-    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
@@ -2606,8 +2612,8 @@ function checkWinCondition() {
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
+    state.winLocked = true;
 
-    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
@@ -2731,6 +2737,10 @@ if (g.type === 'Flashbang') {
 ------------------------------------------------------- */
 
 function resetRoundTimer() {
+
+  // WIN‑LOCK zurücksetzen
+  state.winLocked = false;
+
   // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
@@ -2853,23 +2863,26 @@ function startUnifiedTick() {
       roundTimeDisplay.textContent = `${rm}:${rs.toString().padStart(2, "0")}`;
 
       // TIMEOUT (nur VS Enemy)
-      if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
+if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
-        stopAllTimers();
-        state.animation.running = false;
+  if (state.winLocked) return;
+  state.winLocked = true;
 
-        // CT gewinnt IMMER bei Timeout
-        state.score.CT++;
-        updateScoreDisplay();
+  stopAllTimers();
+  state.animation.running = false;
 
-        if (state.currentTeam === "CT") {
-          alert("Your team wins!");
-        } else {
-          alert("Enemy team wins!");
-        }
+  // CT gewinnt IMMER bei Timeout
+  state.score.CT++;
+  updateScoreDisplay();
 
-        return;
-      }
+  if (state.currentTeam === "CT") {
+    alert("Your team wins!");
+  } else {
+    alert("Enemy team wins!");
+  }
+
+  return;
+}
     }
 
 
@@ -2909,40 +2922,48 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       BOMB TIMER (Explosion)
-    --------------------------------------------------------- */
-    if (state.bomb.planted) {
+   BOMB TIMER (Explosion)
+--------------------------------------------------------- */
+if (state.bomb.planted) {
 
-      state.bomb.timer--;
+  state.bomb.timer--;
 
-      const bs = state.bomb.timer;
-      roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
+  const bs = state.bomb.timer;
+  roundTimeDisplay.textContent = `0:${bs.toString().padStart(2, "0")}`;
 
-      if (bs <= 0) {
+  if (bs <= 0) {
 
-        stopAllTimers();
-        state.animation.running = false;
+    // WIN‑LOCK verhindert doppelte Auslösung
+    if (state.winLocked) return;
+    state.winLocked = true;
 
-        const myTeam = state.currentTeam;
+    stopAllTimers();
+    state.animation.running = false;
 
-        if (myTeam === "T") {
-          state.score.T++;
-          updateScoreDisplay();
-          alert("Your team wins!");
-        } else {
-          state.score.T++;
-          updateScoreDisplay();
-          alert("Enemy team wins!");
-        }
+    const myTeam = state.currentTeam;
 
-        return;
-      }
+    if (myTeam === "T") {
+      state.score.T++;
+      updateScoreDisplay();
+      alert("Your team wins!");
+    } else {
+      state.score.T++;
+      updateScoreDisplay();
+      alert("Enemy team wins!");
     }
+
+    return;
+  }
+}
 
   }, 1000); // 1-second tick
 }
 
 function stopAllTimers() {
+
+  // WIN‑LOCK setzen, damit kein weiterer Sieg ausgelöst wird
+  state.winLocked = true;
+
   // Round timer
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
