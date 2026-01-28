@@ -592,18 +592,18 @@ function snapToNearestWhite(x, y, lastSafe) {
 }
 
 // -------------------------------------------------------
-// SNAP BOMB AREA (14x7px) TO NEAREST FULLY WHITE REGION
+// SNAP BOMB AREA (14x7px) WITH SAFETY MARGIN (default 3px)
 // -------------------------------------------------------
-function snapBombArea(x, y) {
+function snapBombArea(x, y, marginPx = 3) {
   if (!maskImageData) return { x, y };
 
   const bombW = 14;
   const bombH = 7;
 
-  // Prüft, ob das gesamte Bombenrechteck weiß ist
+  // Prüft, ob das gesamte Bombenrechteck + Sicherheitsrand weiß ist
   function areaIsWhite(cx, cy) {
-    for (let dx = -bombW/2; dx <= bombW/2; dx++) {
-      for (let dy = -bombH/2; dy <= bombH/2; dy++) {
+    for (let dx = -(bombW / 2 + marginPx); dx <= (bombW / 2 + marginPx); dx++) {
+      for (let dy = -(bombH / 2 + marginPx); dy <= (bombH / 2 + marginPx); dy++) {
         const px = Math.floor(cx + dx);
         const py = Math.floor(cy + dy);
 
@@ -620,7 +620,7 @@ function snapBombArea(x, y) {
   }
 
   // Sonst: suche in wachsendem Radius
-  const maxRadius = 40;
+  const maxRadius = 50;
 
   for (let r = 1; r <= maxRadius; r++) {
     for (let dx = -r; dx <= r; dx++) {
@@ -1638,8 +1638,8 @@ if (action === 'Plant Bomb') {
     player.x = safePlayer.x;
     player.y = safePlayer.y;
 
-    // Bombenposition anhand des Rechtecks snappen
-    const safeBomb = snapBombArea(player.x, player.y);
+    // Bombenposition anhand des Rechtecks + 3px Sicherheitsrand snappen
+    const safeBomb = snapBombArea(player.x, player.y, 3);
 
     // Spieler ggf. auf die gesnapte Bombenposition setzen
     player.x = safeBomb.x;
