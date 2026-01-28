@@ -830,8 +830,7 @@ const state = {
     timer: 40,
     interval: null,
     x: null,
-    y: null,
-    defuser: null
+    y: null
 }
 };
 
@@ -1866,26 +1865,12 @@ function autoRushIfNoActions(player, enemies) {
     // ---------------------------------------------------------
     if (dist < 12) {
 
-      // ❗ Nur EIN CT darf defusen
-      if (state.bomb.defuser === null) {
-        state.bomb.defuser = player;   // Dies ist der einzige Defuser
-        player.defuseRemaining = 5;    // Start defuse
-      }
-
-      // ❗ Wenn dieser CT NICHT der Defuser ist → stehen bleiben, aber NICHT defusen
-      if (state.bomb.defuser !== player) {
-        return;
+      // Start defuse timer if not running
+      if (!player.defuseRemaining) {
+        player.defuseRemaining = 5; // 5 seconds defuse time
       }
 
       return; // CT stays on bomb
-    }
-
-    // ---------------------------------------------------------
-    // Wenn CT nicht am Bombenplatz ist → aber er ist der Defuser → Defuser verlieren
-    // ---------------------------------------------------------
-    if (state.bomb.defuser === player && dist >= 12) {
-      state.bomb.defuser = null;
-      player.defuseRemaining = null;
     }
 
     // ---------------------------------------------------------
@@ -2595,52 +2580,6 @@ function checkWinCondition() {
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // -------------------------------------------------------
-  // SPEZIALFALL: Bombe liegt
-  // -------------------------------------------------------
-  if (state.bomb.planted) {
-
-    // Wir müssen echte Seiten bestimmen:
-    let aliveT, aliveCT;
-
-    if (state.currentTeam === "T") {
-      aliveT  = state.animation.players.filter(p => p.alive && !p.isEnemy);
-      aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
-    } else {
-      aliveCT = state.animation.players.filter(p => p.alive && !p.isEnemy);
-      aliveT  = state.animation.players.filter(p => p.alive && p.isEnemy);
-    }
-
-    // ❗ Ts besiegen alle CTs -> Ts gewinnen sofort
-    if (aliveCT.length === 0 && aliveT.length > 0) {
-      stopAllTimers();
-      state.animation.running = false;
-
-      state.bomb.planted = false;
-      state.bomb.timer = 40;
-
-      state.score.T++;
-      updateScoreDisplay();
-
-      if (state.currentTeam === "T") alert("Your team wins!");
-      else alert("Enemy team wins!");
-
-      return true;
-    }
-
-    // ❗ CTs besiegen alle Ts -> KEIN Sieg!
-    // CT MUSS entschärfen → Sieg kommt NUR über startUnifiedTick()
-    if (aliveT.length === 0 && aliveCT.length > 0) {
-      return false; // weiterlaufen lassen
-    }
-
-    return false;
-  }
-
-  // -------------------------------------------------------
-  // NORMALE FÄLLE (Bombe liegt NICHT)
-  // -------------------------------------------------------
-
   // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     stopAllTimers();
@@ -2651,6 +2590,8 @@ function checkWinCondition() {
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
+
+    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
@@ -2665,6 +2606,8 @@ function checkWinCondition() {
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
+
+    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
@@ -2931,40 +2874,38 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-   DEFUSE CHECK (nur EIN CT darf defusen)
---------------------------------------------------------- */
-if (state.bomb.planted) {
+       DEFUSE CHECK (CT steht auf Bombe)
+    --------------------------------------------------------- */
+    if (state.bomb.planted) {
 
-  const defuser = state.bomb.defuser;
+      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // Kein Defuser aktiv → nichts tun
-  if (!defuser || !defuser.alive) {
-    state.bomb.defuser = null;
-  } else {
+      CTs.forEach(ct => {
+        if (ct.defuseRemaining != null) {
+          ct.defuseRemaining -= 1;
 
-    defuser.defuseRemaining -= 1;
+          if (ct.defuseRemaining <= 0) {
 
-    if (defuser.defuseRemaining <= 0) {
+            stopAllTimers();
+            state.animation.running = false;
 
-      stopAllTimers();
-      state.animation.running = false;
+            state.bomb.planted = false;
+            state.bomb.timer = 40;
 
-      state.bomb.planted = false;
-      state.bomb.timer = 40;
+            state.score.CT++;
+            updateScoreDisplay();
 
-      state.score.CT++;
-      updateScoreDisplay();
+            if (state.currentTeam === "CT") {
+              alert("Your team wins!");
+            } else {
+              alert("Enemy team wins!");
+            }
 
-      if (state.currentTeam === "CT") {
-        alert("Your team wins!");
-      } else {
-        alert("Enemy team wins!");
-      }
-
-      return;
+            return;
+          }
+        }
+      });
     }
-  }
-}
 
 
     /* ---------------------------------------------------------
