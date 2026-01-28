@@ -1041,8 +1041,13 @@ function renderCurrentTab() {
   overviewTopImg.src = overviewPath;
   overviewBottomImg.src = overviewPath;
 
+  // <<< NEU: Masken laden, sobald Map gewechselt wird
+  loadMaskForMap(map, () => {
+    buildWalkabilityGrid();
+  });
+
   if (!tab.notes || tab.notes.trim() === '') {
-  notesArea.value =
+    notesArea.value =
 `Notes...
 
 🔵
@@ -1059,13 +1064,13 @@ function renderCurrentTab() {
 
 🟡
 • Notes...`;
-} else {
-  notesArea.value = tab.notes;
-}
+  } else {
+    notesArea.value = tab.notes;
+  }
 
   renderSavedTactics();
   renderPlayersAndPaths();
-renderStats();
+  renderStats();
 }
 
 function renderSavedTactics() {
