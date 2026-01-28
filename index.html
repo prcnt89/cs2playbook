@@ -563,6 +563,26 @@ function isWalkable(x, y) {
   return brightness >= 30; // white = walkable, black = blocked
 }
 
+function checkSegmentWalkable(x1, y1, x2, y2) {
+  let dx = Math.abs(x2 - x1);
+  let dy = Math.abs(y2 - y1);
+  let sx = x1 < x2 ? 1 : -1;
+  let sy = y1 < y2 ? 1 : -1;
+  let err = dx - dy;
+
+  while (true) {
+    if (!isWalkable(x1, y1)) return false;
+
+    if (x1 === x2 && y1 === y2) break;
+
+    let e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x1 += sx; }
+    if (e2 < dx) { err += dx; y1 += sy; }
+  }
+
+  return true;
+}
+
 // Check line of sight between two positions using mask
 // white = visible, black = walls
 function hasLineOfSight(x1, y1, x2, y2) {
@@ -1659,11 +1679,9 @@ function onPlayerMouseDown(e) {
   const player = tab.players.find(p => p.id === playerId);
   if (!player) return;
 
-  // Startposition merken
   const startX = player.x;
   const startY = player.y;
 
-  // Letzter gültiger Punkt
   let lastValidX = player.x;
   let lastValidY = player.y;
 
@@ -1686,25 +1704,23 @@ function onPlayerMouseDown(e) {
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
 
-    // --- LIVE BLOCKING ---
-    if (!isWalkable(x, y)) {
+    // --- SEGMENT CHECK: Prüfe alle Pixel zwischen lastValid und neuem Punkt ---
+    if (!checkSegmentWalkable(lastValidX, lastValidY, x, y)) {
       // Spieler bleibt auf letztem gültigen Punkt
       player.x = lastValidX;
       player.y = lastValidY;
 
-      // Kein neuer Pfadpunkt
       renderPlayersAndPaths();
       return;
     }
 
-    // Bewegung erlaubt → neuen gültigen Punkt speichern
+    // Bewegung erlaubt
     lastValidX = Math.max(0, Math.min(830, x));
     lastValidY = Math.max(0, Math.min(830, y));
 
     player.x = lastValidX;
     player.y = lastValidY;
 
-    // Pfad erweitern
     const path = player.paths[state.dragging.pathId];
     path.points.push({ x: player.x, y: player.y });
 
@@ -1715,18 +1731,12 @@ function onPlayerMouseDown(e) {
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onUp);
 
-    // FINAL CHECK
     if (!isWalkable(player.x, player.y)) {
-      // Pfad entfernen
       player.paths.pop();
-
-      // Spieler zurück auf Start
       player.x = startX;
       player.y = startY;
-
       undoCurrentTab();
       alert("You cannot place a player inside walls or obstacles.");
-
       renderPlayersAndPaths();
     }
 
