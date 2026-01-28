@@ -591,6 +591,56 @@ function snapToNearestWhite(x, y, lastSafe) {
   return lastSafe ? { x: lastSafe.x, y: lastSafe.y } : { x, y };
 }
 
+// -------------------------------------------------------
+// SNAP BOMB AREA (14x7px) TO NEAREST FULLY WHITE REGION
+// -------------------------------------------------------
+function snapBombArea(x, y) {
+  if (!maskImageData) return { x, y };
+
+  const bombW = 14;
+  const bombH = 7;
+
+  // Prüft, ob das gesamte Bombenrechteck weiß ist
+  function areaIsWhite(cx, cy) {
+    for (let dx = -bombW/2; dx <= bombW/2; dx++) {
+      for (let dy = -bombH/2; dy <= bombH/2; dy++) {
+        const px = Math.floor(cx + dx);
+        const py = Math.floor(cy + dy);
+
+        if (px < 0 || py < 0 || px >= 830 || py >= 830) return false;
+        if (getMaskBrightness(px, py) <= 30) return false;
+      }
+    }
+    return true;
+  }
+
+  // Wenn aktuelle Position gültig ist → fertig
+  if (areaIsWhite(x, y)) {
+    return { x, y };
+  }
+
+  // Sonst: suche in wachsendem Radius
+  const maxRadius = 40;
+
+  for (let r = 1; r <= maxRadius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        if (nx < 0 || ny < 0 || nx >= 830 || ny >= 830) continue;
+
+        if (areaIsWhite(nx, ny)) {
+          return { x: nx, y: ny };
+        }
+      }
+    }
+  }
+
+  // Wenn nichts gefunden wurde → alte Position zurück
+  return { x, y };
+}
+
 // Check line of sight between two positions using mask
 // white = visible, black = walls
 function hasLineOfSight(x1, y1, x2, y2) {
@@ -1583,16 +1633,23 @@ if (action === 'Molotov') {
 if (action === 'Plant Bomb') {
     pushHistorySnapshot(state.currentMap, state.currentTeam);
 
-    // Spielerposition snappen
-    const snapped = snapToNearestWhite(player.x, player.y, { x: player.x, y: player.y });
-    player.x = snapped.x;
-    player.y = snapped.y;
+    // Spielerposition zuerst normal snappen
+    const safePlayer = snapToNearestWhite(player.x, player.y, { x: player.x, y: player.y });
+    player.x = safePlayer.x;
+    player.y = safePlayer.y;
 
-    // PlantBomb-Position snappen
+    // Bombenposition anhand des Rechtecks snappen
+    const safeBomb = snapBombArea(player.x, player.y);
+
+    // Spieler ggf. auf die gesnapte Bombenposition setzen
+    player.x = safeBomb.x;
+    player.y = safeBomb.y;
+
+    // PlantBomb-Action speichern
     player.paths.push({
         type: 'PlantBomb',
-        x: snapped.x,
-        y: snapped.y
+        x: safeBomb.x,
+        y: safeBomb.y
     });
 
     renderPlayersAndPaths();
