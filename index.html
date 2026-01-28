@@ -1520,43 +1520,57 @@ function onPlayerActionSelected(player, action) {
     return;
   }
 
-// --- FLASHBANG ---
-if (action === 'Flashbang') {
-  state.pendingFlashPlayer = player;
-  return;
-}
+  // --- FLASHBANG ---
+  if (action === 'Flashbang') {
+    state.pendingFlashPlayer = player;
+    return;
+  }
 
-// --- SMOKE ---
-if (action === 'Smoke') {
-  state.pendingSmokePlayer = player;
-  return;
-}
+  // --- SMOKE ---
+  if (action === 'Smoke') {
+    state.pendingSmokePlayer = player;
+    return;
+  }
 
-// --- MOLOTOV ---
-if (action === 'Molotov') {
-  state.pendingMolotovPlayer = player;
-  return;
-}
+  // --- MOLOTOV ---
+  if (action === 'Molotov') {
+    state.pendingMolotovPlayer = player;
+    return;
+  }
 
-// --- PLANT BOMB ---
-if (action === 'Plant Bomb') {
+  // --- PLANT BOMB ---
+  if (action === 'Plant Bomb') {
+
+    // <<< NEU: Prüfen, ob Maskendaten existieren
+    if (!maskImageData) {
+      alert("Error: No mask loaded for this map.");
+      return;
+    }
+
+    // <<< NEU: Prüfen, ob Plant-Position auf schwarzen Pixeln liegt
+    const brightness = getMaskBrightness(player.x, player.y);
+    if (brightness < 30) {
+      alert("You cannot plant the bomb inside walls or obstacles.\nPlease choose a different location.");
+      return;
+    }
+
     pushHistorySnapshot(state.currentMap, state.currentTeam);
 
     player.paths.push({
-        type: 'PlantBomb',
-        x: player.x,
-        y: player.y
+      type: 'PlantBomb',
+      x: player.x,
+      y: player.y
     });
 
     renderPlayersAndPaths();
     return;
-}
+  }
 
-// --- TELEPORT ---
-if (action === 'Teleport') {
-  state.pendingTeleportPlayer = player;
-  return;
-}
+  // --- TELEPORT ---
+  if (action === 'Teleport') {
+    state.pendingTeleportPlayer = player;
+    return;
+  }
 
   // Rush/Walk handled in onPlayerMouseDown
 }
