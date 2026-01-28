@@ -558,6 +558,33 @@ function getMaskBrightness(x, y) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
+// -------------------------------------------------------
+// SNAP PLAYER OR PATH POINT TO NEAREST WHITE PIXEL
+// -------------------------------------------------------
+function snapToNearestWhite(x, y) {
+  if (!maskImageData) return { x, y };
+
+  const maxRadius = 25; // smooth & performant
+
+  for (let r = 0; r <= maxRadius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        // Skip out-of-bounds
+        if (nx < 0 || ny < 0 || nx >= 830 || ny >= 830) continue;
+
+        if (getMaskBrightness(nx, ny) > 30) {
+          return { x: nx, y: ny };
+        }
+      }
+    }
+  }
+
+  return { x, y };
+}
+
 // Check line of sight between two positions using mask
 // white = visible, black = walls
 function hasLineOfSight(x1, y1, x2, y2) {
@@ -1472,7 +1499,6 @@ function onPlayerClick(e) {
   const player = tab.players.find(p => p.id === playerId);
   if (!player) return;
 
-  // Important: prevent new Rush/Walk drawing after this
   state.currentAction = null;
 
   // Remove 1-point ghost path WITHOUT re-rendering
@@ -1482,13 +1508,15 @@ function onPlayerClick(e) {
         last.points &&
         last.points.length === 1) {
 
-      // Remove ghost path silently
       player.paths.pop();
-      // DO NOT render here — this breaks menu positioning
     }
   }
 
-  // Now open the menu with correct DOM coordinates
+  // SNAP PLAYER TO NEAREST WHITE PIXEL BEFORE MENU OPENS
+  const snapped = snapToNearestWhite(player.x, player.y);
+  player.x = snapped.x;
+  player.y = snapped.y;
+
   showPlayerMenu(e.currentTarget, player);
 }
 
@@ -1656,13 +1684,24 @@ function onPlayerMouseDown(e) {
 
   const onMove = (ev) => {
     if (!state.dragging.active) return;
+
     const rect = overviewTopImg.getBoundingClientRect();
-    const x = ev.clientX - rect.left;
-    const y = ev.clientY - rect.top;
+    let x = ev.clientX - rect.left;
+    let y = ev.clientY - rect.top;
+
+    // SNAP TO NEAREST WHITE PIXEL
+    const snapped = snapToNearestWhite(x, y);
+    x = snapped.x;
+    y = snapped.y;
+
+    // Update player position
     player.x = Math.max(0, Math.min(830, x));
     player.y = Math.max(0, Math.min(830, y));
+
+    // Add snapped point to path
     const path = player.paths[state.dragging.pathId];
     path.points.push({ x: player.x, y: player.y });
+
     renderPlayersAndPaths();
   };
 
