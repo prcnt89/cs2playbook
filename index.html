@@ -2726,9 +2726,31 @@ function checkWinCondition() {
     return true;
   }
 
-  // --- IF BOMB IS PLANTED: KILLS DO NOT END THE ROUND ---
+  // -------------------------------------------------------
+  // NEW: T WINS IF BOMB IS PLANTED AND ALL CTS ARE DEAD
+  // -------------------------------------------------------
   if (state.bomb.planted) {
-    // Bombe liegt → nur Defuse oder Explosion entscheidet
+    const myTeamIsT = (state.currentTeam === "T");
+    const aliveCTs = state.animation.players.filter(p => p.alive && p.isEnemy === myTeamIsT);
+
+    // Wenn Bombe liegt und keine CTs mehr leben → T gewinnt sofort
+    if (aliveCTs.length === 0) {
+      stopAllTimers();
+      state.animation.running = false;
+
+      state.score.T++;
+      updateScoreDisplay();
+
+      if (state.currentTeam === "T") {
+        alert("Your team wins!");
+      } else {
+        alert("Enemy team wins!");
+      }
+
+      return true;
+    }
+
+    // Bombe liegt → Kills entscheiden NICHT mehr
     return false;
   }
 
