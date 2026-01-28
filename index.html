@@ -2588,21 +2588,27 @@ function checkWinCondition() {
     return true;
   }
 
-  // My team wins
-  if (aliveEnemyTeam.length === 0) {
+  // My team wins (only if bomb is NOT planted)
+if (aliveEnemyTeam.length === 0) {
 
-    // Stop bomb logic
-    state.bomb.planted = false;
-    state.bomb.timer = 40;
-
-    stopAllTimers();
-    state.animation.running = false;
-
-    state.score[state.currentTeam]++;
-    updateScoreDisplay();
-    alert("Your team wins!");
-    return true;
+  // Wenn Bombe liegt → KEIN sofortiger Sieg
+  if (state.bomb.planted) {
+    // CT müssen defusen → kein Sieger jetzt
+    return false;
   }
+
+  // Bombe liegt nicht → normaler Sieg
+  state.bomb.planted = false;
+  state.bomb.timer = 40;
+
+  stopAllTimers();
+  state.animation.running = false;
+
+  state.score[state.currentTeam]++;
+  updateScoreDisplay();
+  alert("Your team wins!");
+  return true;
+}
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
