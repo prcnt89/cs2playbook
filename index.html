@@ -2353,22 +2353,34 @@ function animationLoop(timestamp) {
         break;
       }
 
-      /* WAIT */
-      if (path.type === 'Wait') {
-        if (p.waitRemaining == null) p.waitRemaining = path.seconds;
+      /* WAIT — now using real seconds */
+if (path.type === 'Wait') {
 
-        p.waitRemaining -= remaining;
-        p.x = path.x;
-        p.y = path.y;
+  // Initialisieren, falls noch nicht gesetzt
+  if (p.waitRemaining == null) {
+    p.waitRemaining = path.seconds;
+  }
 
-        if (p.waitRemaining <= 0) {
-          p.waitRemaining = null;
-          p.currentPathIndex++;
-        }
+  // dtMs ist echte Zeit in Millisekunden → umrechnen in Sekunden
+  const dtSeconds = dtMs / 1000;
 
-        remaining = 0;
-        continue;
-      }
+  // Zeit herunterzählen
+  p.waitRemaining -= dtSeconds;
+
+  // Spieler bleibt während Wait an seiner Position
+  p.x = path.x;
+  p.y = path.y;
+
+  // Wenn Wartezeit abgelaufen → weiter zum nächsten Pfad
+  if (p.waitRemaining <= 0) {
+    p.waitRemaining = null;
+    p.currentPathIndex++;
+  }
+
+  // Warten verbraucht den gesamten Frame
+  remaining = 0;
+  continue;
+}
 
       /* PLANT BOMB */
 if (path.type === 'PlantBomb') {
