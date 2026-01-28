@@ -1847,16 +1847,19 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // CT-DEFUSE-LOGIK (immer CT, egal ob ich T oder CT spiele)
+  // CT korrekt erkennen (egal ob ich T oder CT spiele)
+  // ---------------------------------------------------------
+  const ctTeamIsEnemy = (state.currentTeam === "T");
+  const playerIsCT = (player.isEnemy === ctTeamIsEnemy);
+
+  // ---------------------------------------------------------
+  // CT sollen defusen, wenn Bombe liegt
   // ---------------------------------------------------------
   const ctShouldDefuse =
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    (
-      // CT = das Team, das NICHT state.currentTeam ist
-      player.isEnemy !== (state.currentTeam === "T")
-    );
+    playerIsCT;
 
   if (ctShouldDefuse) {
 
@@ -1864,7 +1867,7 @@ function autoRushIfNoActions(player, enemies) {
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
-    // CT steht auf Bombe → defusen
+    // CT reached bomb → start/continue defuse
     if (dist < 12) {
       if (!player.defuseRemaining) {
         player.defuseRemaining = 5;
@@ -1872,7 +1875,7 @@ function autoRushIfNoActions(player, enemies) {
       return;
     }
 
-    // CT läuft zur Bombe
+    // CT runs to bomb
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
