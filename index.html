@@ -1855,8 +1855,6 @@ function autoRushIfNoActions(player, enemies) {
     state.bomb.x !== null &&
     (
       // CT = das Team, das NICHT state.currentTeam ist
-      // Wenn ich T bin → CT = isEnemy === true
-      // Wenn ich CT bin → CT = isEnemy === false
       player.isEnemy !== (state.currentTeam === "T")
     );
 
@@ -1866,22 +1864,15 @@ function autoRushIfNoActions(player, enemies) {
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
-    // ---------------------------------------------------------
-    // CT reached bomb → start/continue defuse
-    // ---------------------------------------------------------
+    // CT steht auf Bombe → defusen
     if (dist < 12) {
-
-      // Start defuse timer if not running
       if (!player.defuseRemaining) {
-        player.defuseRemaining = 5; // 5 seconds defuse time
+        player.defuseRemaining = 5;
       }
-
-      return; // CT stays on bomb
+      return;
     }
 
-    // ---------------------------------------------------------
-    // Otherwise: run to bomb
-    // ---------------------------------------------------------
+    // CT läuft zur Bombe
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
@@ -2596,13 +2587,12 @@ function checkWinCondition() {
 
   // --- IF BOMB IS PLANTED: KILLS DO NOT END THE ROUND ---
   if (state.bomb.planted) {
-    // Wenn Bombe liegt → nur Explosion oder Defuse entscheidet
+    // Bombe liegt → nur Defuse oder Explosion entscheidet
     return false;
   }
 
   // --- IF BOMB IS NOT PLANTED: KILLS DECIDE THE ROUND ---
   if (aliveEnemyTeam.length === 0) {
-    // Gegner tot → mein Team gewinnt
     stopAllTimers();
     state.animation.running = false;
 
@@ -2613,7 +2603,6 @@ function checkWinCondition() {
   }
 
   if (aliveMyTeam.length === 0) {
-    // Mein Team tot → Gegner gewinnt
     stopAllTimers();
     state.animation.running = false;
 
