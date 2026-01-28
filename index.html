@@ -2873,7 +2873,8 @@ function startUnifiedTick() {
     --------------------------------------------------------- */
     if (state.bomb.planted) {
 
-      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+      const ctTeamIsEnemy = (state.currentTeam === "T");
+const CTs = state.animation.players.filter(p => p.alive && (p.isEnemy === ctTeamIsEnemy));
 
       CTs.forEach(ct => {
         if (ct.defuseRemaining != null) {
