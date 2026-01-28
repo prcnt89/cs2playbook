@@ -2595,6 +2595,52 @@ function checkWinCondition() {
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
+  // -------------------------------------------------------
+  // SPEZIALFALL: Bombe liegt
+  // -------------------------------------------------------
+  if (state.bomb.planted) {
+
+    // Wir müssen echte Seiten bestimmen:
+    let aliveT, aliveCT;
+
+    if (state.currentTeam === "T") {
+      aliveT  = state.animation.players.filter(p => p.alive && !p.isEnemy);
+      aliveCT = state.animation.players.filter(p => p.alive && p.isEnemy);
+    } else {
+      aliveCT = state.animation.players.filter(p => p.alive && !p.isEnemy);
+      aliveT  = state.animation.players.filter(p => p.alive && p.isEnemy);
+    }
+
+    // ❗ Ts besiegen alle CTs -> Ts gewinnen sofort
+    if (aliveCT.length === 0 && aliveT.length > 0) {
+      stopAllTimers();
+      state.animation.running = false;
+
+      state.bomb.planted = false;
+      state.bomb.timer = 40;
+
+      state.score.T++;
+      updateScoreDisplay();
+
+      if (state.currentTeam === "T") alert("Your team wins!");
+      else alert("Enemy team wins!");
+
+      return true;
+    }
+
+    // ❗ CTs besiegen alle Ts -> KEIN Sieg!
+    // CT MUSS entschärfen → Sieg kommt NUR über startUnifiedTick()
+    if (aliveT.length === 0 && aliveCT.length > 0) {
+      return false; // weiterlaufen lassen
+    }
+
+    return false;
+  }
+
+  // -------------------------------------------------------
+  // NORMALE FÄLLE (Bombe liegt NICHT)
+  // -------------------------------------------------------
+
   // Draw
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     stopAllTimers();
@@ -2605,8 +2651,6 @@ function checkWinCondition() {
 
   // My team wins
   if (aliveEnemyTeam.length === 0) {
-
-    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
@@ -2621,8 +2665,6 @@ function checkWinCondition() {
 
   // Enemy wins
   if (aliveMyTeam.length === 0) {
-
-    // Stop bomb logic
     state.bomb.planted = false;
     state.bomb.timer = 40;
 
