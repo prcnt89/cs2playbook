@@ -994,10 +994,17 @@ function initTabsUI() {
     el.textContent = map;
     el.dataset.map = map;
     el.addEventListener('click', () => {
+
       saveNotesToState();
       state.currentMap = map;
-      renderTabs();
-      renderCurrentTab();
+
+      // <<< NEU: Maske sofort laden, bevor irgendwas anderes passiert
+      loadMaskForMap(map, () => {
+        buildWalkabilityGrid();
+        renderTabs();
+        renderCurrentTab();
+      });
+
     });
     mapTabsEl.appendChild(el);
   });
