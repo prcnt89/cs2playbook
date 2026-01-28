@@ -558,6 +558,11 @@ function getMaskBrightness(x, y) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
+function isWalkable(x, y) {
+  const brightness = getMaskBrightness(x, y);
+  return brightness >= 30; // white = walkable, black = blocked
+}
+
 // Check line of sight between two positions using mask
 // white = visible, black = walls
 function hasLineOfSight(x1, y1, x2, y2) {
@@ -580,6 +585,10 @@ function hasLineOfSight(x1, y1, x2, y2) {
     }
   }
   return true;
+}
+
+function debugMask(x, y) {
+  console.log("Mask brightness at", x, y, "=", getMaskBrightness(x, y));
 }
 
 /* -------------------------------------------------------
@@ -1039,7 +1048,15 @@ function renderCurrentTab() {
 
   const overviewPath = `./graphics/${map}.png`;
   overviewTopImg.src = overviewPath;
-  overviewBottomImg.src = overviewPath;
+overviewBottomImg.src = overviewPath;
+
+// -----------------------------------------
+// LOAD MASK + BUILD WALKABILITY GRID
+// (WICHTIG für isWalkable() und schwarze Pixel Checks)
+// -----------------------------------------
+loadMaskForMap(map, () => {
+  buildWalkabilityGrid();
+});
 
   if (!tab.notes || tab.notes.trim() === '') {
   notesArea.value =
@@ -1642,6 +1659,10 @@ function onPlayerMouseDown(e) {
   const player = tab.players.find(p => p.id === playerId);
   if (!player) return;
 
+  // Startposition merken
+  const startX = player.x;
+  const startY = player.y;
+
   pushHistorySnapshot(state.currentMap, state.currentTeam);
 
   state.dragging.active = true;
@@ -1659,19 +1680,49 @@ function onPlayerMouseDown(e) {
     const rect = overviewTopImg.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
+
     player.x = Math.max(0, Math.min(830, x));
     player.y = Math.max(0, Math.min(830, y));
+
     const path = player.paths[state.dragging.pathId];
     path.points.push({ x: player.x, y: player.y });
+
     renderPlayersAndPaths();
   };
 
   const onUp = () => {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+
+    // DEBUG: Zeige Maskenwert
+    debugMask(player.x, player.y);
+
+    // --- FINAL POSITION CHECK ---
+    if (!isWalkable(player.x, player.y)) {
+
+      // Pfad entfernen
+      player.paths.pop();
+
+      // Spieler zurücksetzen
+      player.x = startX;
+      player.y = startY;
+
+      // Snapshot rückgängig machen
+      undoCurrentTab();
+
+      alert("You cannot place a player inside walls or obstacles.");
+
+      state.dragging.active = false;
+      state.dragging.playerId = null;
+      state.dragging.pathId = null;
+
+      renderPlayersAndPaths();
+      return;
+    }
+
     state.dragging.active = false;
     state.dragging.playerId = null;
     state.dragging.pathId = null;
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
   };
 
   window.addEventListener('mousemove', onMove);
