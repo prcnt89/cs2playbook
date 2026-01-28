@@ -1868,7 +1868,6 @@ function autoRushIfNoActions(player, enemies) {
        path.type === "Smoke" ||
        path.type === "Molotov");
 
-    // Wenn CT gerade beschäftigt ist → nicht eingreifen
     if (isBusy) return;
 
     // Distanz zur Bombe
@@ -1876,21 +1875,17 @@ function autoRushIfNoActions(player, enemies) {
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
-    // ---------------------------------------------------------
     // CT reached bomb → start/continue defuse
-    // ---------------------------------------------------------
     if (dist < 12) {
 
       if (!player.defuseRemaining) {
-        player.defuseRemaining = 5; // 5 seconds defuse time
+        player.defuseRemaining = 5;
       }
 
       return;
     }
 
-    // ---------------------------------------------------------
     // Otherwise: run to bomb
-    // ---------------------------------------------------------
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
@@ -2617,8 +2612,9 @@ function checkWinCondition() {
   --------------------------------------------------------- */
   if (aliveEnemyTeam.length === 0) {
 
+    // CT darf NICHT gewinnen, wenn Bombe liegt
     if (bombPlanted && state.currentTeam === "CT") {
-      return false; // CT must defuse
+      return false; // CT muss defusen
     }
 
     state.winLocked = true;
