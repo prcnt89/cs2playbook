@@ -559,17 +559,20 @@ function getMaskBrightness(x, y) {
 }
 
 // -------------------------------------------------------
-// SNAP PLAYER OR PATH POINT TO NEAREST WHITE PIXEL
+// SNAP TO NEAREST WHITE PIXEL — GUARANTEED SAFE
 // -------------------------------------------------------
-// -------------------------------------------------------
-// SNAP PLAYER OR PATH POINT TO NEAREST WHITE PIXEL
-// -------------------------------------------------------
-function snapToNearestWhite(x, y) {
+function snapToNearestWhite(x, y, lastSafe) {
   if (!maskImageData) return { x, y };
 
-  const maxRadius = 25;
+  const maxRadius = 40; // größerer Radius für Sicherheit
 
-  for (let r = 0; r <= maxRadius; r++) {
+  // Falls aktueller Punkt schon weiß → sofort zurück
+  if (getMaskBrightness(x, y) > 30) {
+    return { x, y };
+  }
+
+  // Suche nach dem nächsten weißen Pixel
+  for (let r = 1; r <= maxRadius; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dy = -r; dy <= r; dy++) {
         const nx = x + dx;
@@ -584,7 +587,8 @@ function snapToNearestWhite(x, y) {
     }
   }
 
-  return { x, y };
+  // Wenn KEIN weißer Pixel gefunden wurde → zurück zur letzten sicheren Position
+  return lastSafe ? { x: lastSafe.x, y: lastSafe.y } : { x, y };
 }
 
 // Check line of sight between two positions using mask
@@ -1684,6 +1688,9 @@ function onPlayerMouseDown(e) {
   state.dragging.active = true;
   state.dragging.playerId = playerId;
 
+  // NEU: letzte sichere Position speichern
+  let lastSafe = { x: player.x, y: player.y };
+
   const newPath = {
     type: action,
     points: [{ x: player.x, y: player.y }]
@@ -1698,18 +1705,24 @@ function onPlayerMouseDown(e) {
     let x = ev.clientX - rect.left;
     let y = ev.clientY - rect.top;
 
-    // -------------------------------------------------------
-    // LIVE SNAPPING
-    // -------------------------------------------------------
-    const snapped = snapToNearestWhite(x, y);
+    // SNAP mit Fallback auf lastSafe
+    const snapped = snapToNearestWhite(x, y, lastSafe);
     x = snapped.x;
     y = snapped.y;
 
-    player.x = Math.max(0, Math.min(830, x));
-    player.y = Math.max(0, Math.min(830, y));
+    // Wenn snapped == lastSafe → wir waren in einer Wand
+    if (x === lastSafe.x && y === lastSafe.y) {
+      // Spieler bleibt an der Wand hängen
+    } else {
+      // Neue sichere Position speichern
+      lastSafe = { x, y };
+    }
+
+    player.x = x;
+    player.y = y;
 
     const path = player.paths[state.dragging.pathId];
-    path.points.push({ x: player.x, y: player.y });
+    path.points.push({ x, y });
 
     renderPlayersAndPaths();
   };
