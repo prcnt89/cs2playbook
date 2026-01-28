@@ -2579,13 +2579,17 @@ function performShootingStep() {
 
 function checkWinCondition() {
 
-  // Bereits ein Sieg ausgelöst? → sofort abbrechen
+  // Bereits ein Sieg ausgelöst?
   if (state.winLocked) return true;
 
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
   const aliveEnemyTeam = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-  // Draw
+  const bombPlanted = state.bomb.planted;
+
+  // -------------------------------
+  // DRAW (beide Teams tot)
+  // -------------------------------
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
     state.winLocked = true;
     stopAllTimers();
@@ -2594,8 +2598,14 @@ function checkWinCondition() {
     return true;
   }
 
-  // My team wins
+  // -------------------------------
+  // TERRORISTS WIN (CT alle tot)
+  // Bombe egal
+  // -------------------------------
   if (aliveEnemyTeam.length === 0) {
+
+    // Wenn Bombe liegt → T gewinnt sofort
+    // Wenn Bombe nicht liegt → T gewinnt auch
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2610,8 +2620,18 @@ function checkWinCondition() {
     return true;
   }
 
-  // Enemy wins
+  // -------------------------------
+  // COUNTER‑TERRORISTS WIN?
+  // Nur wenn Bombe NICHT liegt
+  // -------------------------------
   if (aliveMyTeam.length === 0) {
+
+    // Wenn Bombe liegt → CT gewinnt NICHT!
+    if (bombPlanted) {
+      return false; // warten auf Explosion oder Defuse
+    }
+
+    // Bombe liegt NICHT → CT gewinnt
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2887,41 +2907,43 @@ if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
 
     /* ---------------------------------------------------------
-       DEFUSE CHECK (CT steht auf Bombe)
-    --------------------------------------------------------- */
-    if (state.bomb.planted) {
+   DEFUSE CHECK (CT steht auf Bombe)
+--------------------------------------------------------- */
+if (state.bomb.planted) {
 
-      const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
+  const CTs = state.animation.players.filter(p => p.alive && p.isEnemy);
 
-      CTs.forEach(ct => {
-        if (ct.defuseRemaining != null) {
-          ct.defuseRemaining -= 1;
+  CTs.forEach(ct => {
+    if (ct.defuseRemaining != null) {
+      ct.defuseRemaining -= 1;
 
-          if (ct.defuseRemaining <= 0) {
+      if (ct.defuseRemaining <= 0) {
 
-            stopAllTimers();
-            state.animation.running = false;
+        if (state.winLocked) return;
+        state.winLocked = true;
 
-            state.bomb.planted = false;
-            state.bomb.timer = 40;
+        stopAllTimers();
+        state.animation.running = false;
 
-            state.score.CT++;
-            updateScoreDisplay();
+        state.bomb.planted = false;
+        state.bomb.timer = 40;
 
-            if (state.currentTeam === "CT") {
-              alert("Your team wins!");
-            } else {
-              alert("Enemy team wins!");
-            }
+        state.score.CT++;
+        updateScoreDisplay();
 
-            return;
-          }
+        if (state.currentTeam === "CT") {
+          alert("Your team wins!");
+        } else {
+          alert("Enemy team wins!");
         }
-      });
+
+        return;
+      }
     }
+  });
+}
 
-
-    /* ---------------------------------------------------------
+/* ---------------------------------------------------------
    BOMB TIMER (Explosion)
 --------------------------------------------------------- */
 if (state.bomb.planted) {
@@ -2933,22 +2955,19 @@ if (state.bomb.planted) {
 
   if (bs <= 0) {
 
-    // WIN‑LOCK verhindert doppelte Auslösung
     if (state.winLocked) return;
     state.winLocked = true;
 
     stopAllTimers();
     state.animation.running = false;
 
-    const myTeam = state.currentTeam;
+    // Explosion = T WIN (egal ob T tot)
+    state.score.T++;
+    updateScoreDisplay();
 
-    if (myTeam === "T") {
-      state.score.T++;
-      updateScoreDisplay();
+    if (state.currentTeam === "T") {
       alert("Your team wins!");
     } else {
-      state.score.T++;
-      updateScoreDisplay();
       alert("Enemy team wins!");
     }
 
