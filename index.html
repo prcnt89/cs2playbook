@@ -1847,14 +1847,20 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.done) return;
 
   // ---------------------------------------------------------
-  // CT DEFUSE LOGIC (only in VS mode)
+  // CT-DEFUSE-LOGIK (immer CT, egal ob ich T oder CT spiele)
   // ---------------------------------------------------------
-  if (
+  const ctShouldDefuse =
     state.animation.checkWin &&
     state.bomb.planted &&
     state.bomb.x !== null &&
-    player.isEnemy === true // CT only
-  ) {
+    (
+      // CT = das Team, das NICHT state.currentTeam ist
+      // Wenn ich T bin → CT = isEnemy === true
+      // Wenn ich CT bin → CT = isEnemy === false
+      player.isEnemy !== (state.currentTeam === "T")
+    );
+
+  if (ctShouldDefuse) {
 
     const dx = player.x - state.bomb.x;
     const dy = player.y - state.bomb.y;
