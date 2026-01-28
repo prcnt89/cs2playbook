@@ -1845,11 +1845,10 @@ function buildAnimationState() {
 
 function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
-  if (!player.done) return;
 
-  // ---------------------------------------------------------
-  // CT DEFUSE LOGIC (only in VS mode)
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     CT DEFUSE LOGIC (VS mode only)
+  --------------------------------------------------------- */
   if (
     state.animation.checkWin &&
     state.bomb.planted &&
@@ -1857,6 +1856,22 @@ function autoRushIfNoActions(player, enemies) {
     player.isEnemy === true // CT only
   ) {
 
+    // Prüfen, ob CT gerade eine Aktion aktiv ausführt
+    const path = player.paths[player.currentPathIndex];
+    const isBusy =
+      path &&
+      (path.type === "Rush" ||
+       path.type === "Walk" ||
+       path.type === "Teleport" ||
+       path.type === "Grenade" ||
+       path.type === "Flashbang" ||
+       path.type === "Smoke" ||
+       path.type === "Molotov");
+
+    // Wenn CT gerade beschäftigt ist → nicht eingreifen
+    if (isBusy) return;
+
+    // Distanz zur Bombe
     const dx = player.x - state.bomb.x;
     const dy = player.y - state.bomb.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -1866,12 +1881,11 @@ function autoRushIfNoActions(player, enemies) {
     // ---------------------------------------------------------
     if (dist < 12) {
 
-      // Start defuse timer if not running
       if (!player.defuseRemaining) {
         player.defuseRemaining = 5; // 5 seconds defuse time
       }
 
-      return; // CT stays on bomb
+      return;
     }
 
     // ---------------------------------------------------------
@@ -1880,8 +1894,8 @@ function autoRushIfNoActions(player, enemies) {
     const start = worldToGrid(player.x, player.y);
     const goal = worldToGrid(state.bomb.x, state.bomb.y);
 
-    let path = findPathAStar(start, goal);
-    if (!path || path.length < 2) return;
+    let pathToBomb = findPathAStar(start, goal);
+    if (!pathToBomb || pathToBomb.length < 2) return;
 
     function segmentHitsWall(a, b) {
       const steps = 20;
@@ -1896,12 +1910,12 @@ function autoRushIfNoActions(player, enemies) {
     }
 
     const cleaned = [];
-    for (let i = 0; i < path.length - 1; i++) {
-      if (!segmentHitsWall(path[i], path[i+1])) {
-        cleaned.push(path[i]);
+    for (let i = 0; i < pathToBomb.length - 1; i++) {
+      if (!segmentHitsWall(pathToBomb[i], pathToBomb[i+1])) {
+        cleaned.push(pathToBomb[i]);
       }
     }
-    cleaned.push(path[path.length - 1]);
+    cleaned.push(pathToBomb[pathToBomb.length - 1]);
 
     if (cleaned.length < 2) return;
 
@@ -1926,14 +1940,13 @@ function autoRushIfNoActions(player, enemies) {
     player.currentPathIndex = player.paths.length - 1;
     player.currentSegmentIndex = 0;
     player.distanceOnSegment = 0;
-    player.done = false;
 
     return;
   }
 
-  // ---------------------------------------------------------
-  // OLD BEHAVIOR: run to nearest enemy
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     OLD BEHAVIOR: run to nearest enemy (T side)
+  --------------------------------------------------------- */
   if (enemies.length === 0) return;
 
   let nearest = null;
@@ -2001,7 +2014,6 @@ function autoRushIfNoActions(player, enemies) {
   player.currentPathIndex = player.paths.length - 1;
   player.currentSegmentIndex = 0;
   player.distanceOnSegment = 0;
-  player.done = false;
 }
 
 function buildEnemyAnimationState(enemyPlayers) {
