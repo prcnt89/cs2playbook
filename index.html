@@ -2591,7 +2591,6 @@ function performShootingStep() {
 
 function checkWinCondition() {
 
-  // Bereits ein Sieg ausgelöst?
   if (state.winLocked) return true;
 
   const aliveMyTeam = state.animation.players.filter(p => p.alive && !p.isEnemy);
@@ -2600,28 +2599,28 @@ function checkWinCondition() {
   const bombPlanted = state.bomb.planted;
 
   /* ---------------------------------------------------------
-     DRAW (beide Teams tot)
+     BOTH TEAMS DEAD → NO DRAW IN CS
+     Bombe entscheidet, sonst Timeout
   --------------------------------------------------------- */
   if (aliveMyTeam.length === 0 && aliveEnemyTeam.length === 0) {
-    state.winLocked = true;
-    stopAllTimers();
-    state.animation.running = false;
-    alert("Draw!");
-    return true;
+
+    if (bombPlanted) {
+      return false; // Explosion entscheidet
+    }
+
+    return false; // Timeout entscheidet (CT win)
   }
 
   /* ---------------------------------------------------------
-     MY TEAM WINS (enemy team dead)
-     BUT: if my team = CT AND bomb is planted → NO WIN YET
+     MY TEAM WINS (enemy dead)
+     BUT: if my team = CT AND bomb is planted → must defuse
   --------------------------------------------------------- */
   if (aliveEnemyTeam.length === 0) {
 
-    // If my team is CT and bomb is planted → must defuse
     if (bombPlanted && state.currentTeam === "CT") {
-      return false; // continue simulation
+      return false; // CT must defuse
     }
 
-    // Otherwise → normal win
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2637,18 +2636,15 @@ function checkWinCondition() {
   }
 
   /* ---------------------------------------------------------
-     ENEMY TEAM WINS (my team dead)
-     BUT: if my team = T AND bomb is planted → NO WIN YET
-     (T can still win by explosion)
+     ENEMY WINS (my team dead)
+     BUT: if my team = T AND bomb is planted → wait for explosion
   --------------------------------------------------------- */
   if (aliveMyTeam.length === 0) {
 
-    // If my team is T and bomb is planted → wait for explosion
     if (bombPlanted && state.currentTeam === "T") {
-      return false; // continue simulation
+      return false; // Explosion entscheidet
     }
 
-    // Otherwise → normal CT win
     state.winLocked = true;
 
     state.bomb.planted = false;
@@ -2873,7 +2869,6 @@ function startBombTimer() {
 
 function startUnifiedTick() {
 
-  // Falls bereits aktiv → stoppen und neu starten
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
   }
@@ -2890,7 +2885,7 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       ROUND TIMER (nur wenn Bombe NICHT liegt)
+       ROUND TIMER (only if bomb NOT planted)
     --------------------------------------------------------- */
     if (!state.bomb.planted && state.roundTimer.remaining > 0) {
 
@@ -2900,7 +2895,6 @@ function startUnifiedTick() {
       const rs = state.roundTimer.remaining % 60;
       roundTimeDisplay.textContent = `${rm}:${rs.toString().padStart(2, "0")}`;
 
-      // TIMEOUT (nur VS Enemy)
       if (state.roundTimer.remaining <= 0 && state.animation.checkWin) {
 
         if (state.winLocked) return;
@@ -2909,7 +2903,6 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
-        // CT gewinnt IMMER bei Timeout
         state.score.CT++;
         updateScoreDisplay();
 
@@ -2925,7 +2918,7 @@ function startUnifiedTick() {
 
 
     /* ---------------------------------------------------------
-       DEFUSE CHECK (CT steht auf Bombe)
+       DEFUSE CHECK (CT on bomb)
     --------------------------------------------------------- */
     if (state.bomb.planted) {
 
@@ -2980,7 +2973,6 @@ function startUnifiedTick() {
         stopAllTimers();
         state.animation.running = false;
 
-        // Explosion = T WIN (egal ob T tot)
         state.score.T++;
         updateScoreDisplay();
 
@@ -2994,7 +2986,7 @@ function startUnifiedTick() {
       }
     }
 
-  }, 1000); // 1-second tick
+  }, 1000);
 }
 
 function stopAllTimers() {
