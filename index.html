@@ -2776,35 +2776,13 @@ function resetRoundTimer() {
 }
 
 function startPreCountdown(callback) {
-  let timeLeft = 2;
-  roundTimeDisplay.textContent = timeLeft;
-
-  state.roundTimer.interval = setInterval(() => {
-    timeLeft--;
-    roundTimeDisplay.textContent = timeLeft;
-
-    if (timeLeft <= 0) {
-      clearInterval(state.roundTimer.interval);
-      state.roundTimer.interval = null;
-      callback();
-    }
-  }, 830);
+  // Countdown entfernt → sofort starten
+  callback();
 }
 
 function startDurationPreCountdown(callback) {
-  let timeLeft = 2;
-  durationDisplay.textContent = timeLeft;
-
-  state.durationTimer.preCountdown = setInterval(() => {
-    timeLeft--;
-    durationDisplay.textContent = timeLeft;
-
-    if (timeLeft <= 0) {
-      clearInterval(state.durationTimer.preCountdown);
-      state.durationTimer.preCountdown = null;
-      callback();
-    }
-  }, 830);
+  // Countdown entfernt → sofort starten
+  callback();
 }
 
 function startDurationTimer() {
@@ -3022,14 +3000,8 @@ btnPlay.addEventListener('click', () => {
 state.lastEnemyTacticName = "";
 updateTacticInfoDisplay();
 
-  // Both timers with pre‑countdown
-  startPreCountdown(() => {
-    startAnimation();
-  });
-
-  startDurationPreCountdown(() => {
-    startDurationTimer();
-  });
+startAnimation();
+startDurationTimer();
 });
 
 // -------------------------------------------------------
@@ -3094,16 +3066,11 @@ updateTacticInfoDisplay();
       p.el = el;
     });
 
-    // Start timers + animation with pre-countdown
-    startPreCountdown(() => {
-      state.animation.running = true;
-      state.animation.lastTime = null;
-      state.animation.frameRequest = requestAnimationFrame(animationLoop);
-    });
+    state.animation.running = true;
+state.animation.lastTime = null;
+state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    startDurationPreCountdown(() => {
-      startDurationTimer();
-    });
+startDurationTimer();
   });
 });
 
