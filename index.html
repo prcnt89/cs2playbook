@@ -288,13 +288,147 @@ body {
       50%  { box-shadow: 0 0 10px 4px rgba(255,0,0,1); }
       100% { box-shadow: 0 0 4px 2px rgba(255,0,0,0.8); }
     }
+
+.map-tabs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #222;
+  border-bottom: 1px solid #333;
+  padding-right: 10px;
+}
+
+.map-tabs {
+  display: flex;
+}
+
+/* Popup Overlay */
+.help-popup {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.help-popup.hidden {
+  display: none;
+}
+
+.help-popup-content {
+  background: #1b1b1b;
+  border: 1px solid #444;
+  padding: 20px 30px;
+  width: 600px;
+  max-width: 90%;
+  border-radius: 8px;
+  position: relative;
+  color: #eee;
+  overflow: hidden;
+}
+
+.help-close {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #aaa;
+}
+
+.help-close:hover {
+  color: #fff;
+}
+
+.help-title {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.help-section-title {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.help-btn {
+  background: #444;
+  color: #eee;
+  border: 1px solid #666;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  height: 100%;
+}
+
+.help-btn:hover {
+  background: #555;
+}
+
+.help-paragraph {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 15px;
+}
+
+.help-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.help-tab {
+  padding: 6px 12px;
+  cursor: pointer;
+  background: #333;
+  border: 1px solid #555;
+  color: #ddd;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.help-tab.active {
+  background: #555;
+  border-color: #777;
+  color: #fff;
+}
+
+.help-tab-content {
+  display: none;
+}
+
+.help-tab-content.active {
+  display: block;
+}
+
+.help-content-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.help-popup-content b,
+.help-popup-content strong {
+  font-weight: 700 !important;
+}
   </style>
 </head>
 <body>
   <div class="app">
 
     <!-- Map Tabs -->
-    <div class="map-tabs" id="mapTabs"></div>
+    <div class="map-tabs-row">
+  <div class="map-tabs" id="mapTabs"></div>
+
+  <button id="helpButton" class="help-btn">? Help</button>
+</div>
 
     <!-- Team Tabs -->
     <div class="team-tabs" id="teamTabs"></div>
@@ -311,27 +445,27 @@ body {
             <h3>Menu</h3>
             <button id="btnImportPlaybook">Import Playbook (JSON)</button>
             <button id="btnExportPlaybook">Export Playbook (JSON)</button>
-            <button id="btnImportTactic">Import tactic (JSON)</button>
-            <button id="btnExportTactic">Export tactic (JSON)</button>
+            <button id="btnImportTactic">Import Tactic (JSON)</button>
+            <button id="btnExportTactic">Export Tactic (JSON)</button>
 
             <div style="height: 25px;"></div>
 
-            <button id="btnNew">Create new tactic</button>
-            <button id="btnSave">Save tactic...</button>
-            <button id="btnDelete">Delete current tactic</button>
+            <button id="btnNew">New Tactic</button>
+            <button id="btnSave">Save Tactic...</button>
+            <button id="btnDelete">Delete Tactic</button>
             <button id="btnUndo">Undo</button>
           </div>
 
           <!-- Statistics -->
           <div class="menu" id="statsMenu" style="text-align:center;">
             <h3>Real Statistics</h3>
-            <button id="btnWin">Round won (+)</button>
-            <button id="btnWinMinus">Round won (-)</button>
+            <button id="btnWin">Round Won (+)</button>
+            <button id="btnWinMinus">Round Won (-)</button>
 
             <div style="margin-top: 5px;"></div>
 
-            <button id="btnLoss">Round lost (+)</button>
-            <button id="btnLossMinus">Round lost (-)</button>
+            <button id="btnLoss">Round Lost (+)</button>
+            <button id="btnLossMinus">Round Lost (-)</button>
 
             <div id="statsDisplay" style="margin-top:8px; font-size:14px;">
               Wins: 0 | Losses: 0<br>
@@ -352,7 +486,7 @@ body {
 <div class="menu" style="text-align:center;">
   <h3>Matchinfos</h3>
 
-  <div style="font-size:14px; margin-bottom:6px;">Round time:</div>
+  <div style="font-size:14px; margin-bottom:6px;">Round Time:</div>
   <div id="roundTimeDisplay" style="
     font-size:18px;
     font-weight:bold;
@@ -402,7 +536,7 @@ Enemy tactic:
             <!-- Play/Stop Menü -->
             <div class="play-menu">
               <button id="btnPlay">Simulate</button>
-              <button id="btnPlayVs">Simulate (with Enemy)</button>
+              <button id="btnPlayVs">Simulate (With Enemy)</button>
               <button id="btnPause">Pause / Continue</button>
               <button id="btnStop">Reset</button>
             </div>
@@ -431,7 +565,7 @@ Enemy tactic:
 
         <!-- RIGHT COLUMN -->
         <div class="notes">
-          <h3>Notes</h3>
+          <h3>Player Instructions & Notes</h3>
           <textarea id="notesArea"></textarea>
         </div>
 
@@ -439,6 +573,215 @@ Enemy tactic:
     </div>
 
   </div>
+
+<!-- HELP POPUP -->
+<div id="helpPopup" class="help-popup hidden">
+  <div class="help-popup-content">
+    <span class="help-close">&times;</span>
+
+    <h1 class="help-title">Help</h1>
+
+    <!-- TAB HEADERS -->
+    <div class="help-tabs">
+      <div class="help-tab active" data-tab="basics">Basics</div>
+      <div class="help-tab" data-tab="actions">Actions</div>
+      <div class="help-tab" data-tab="simulation">Simulation</div>
+      <div class="help-tab" data-tab="advanced">Advanced</div>
+      <div class="help-tab" data-tab="issues">Known Issues</div>
+    </div>
+
+<div class="help-content-scroll">
+
+    <!-- TAB CONTENT: BASICS -->
+    <div class="help-tab-content active" id="tab-basics">
+      <h2 class="help-section-title">How to get started</h2>
+      <p class="help-paragraph">
+        First select a map in the top menu bar for which you want to create a tactic.<br>
+        Then choose the team in the menu bar directly below it.<br>
+        Each team has its own set of saved tactics, player positions and notes for each map.
+      </p>
+
+      <h2 class="help-section-title">Create a tactic</h2>
+      <p class="help-paragraph">
+        Click on any player to open the action menu and assign <b>Rush</b>, <b>Walk</b>, <b>Wait</b>, <b>Utility</b> or <b>Bomb</b> actions.<br>
+        Drag players across the map to draw movement paths and visually build your tactic.<br><br>
+
+        Additionally, you can use the <b>Player Instructions & Notes</b> area on the right side to write player instructions,
+        tactical ideas, or reminders for your team.<br><br>
+
+        Once your tactic is complete, save it using the <b>"Save Tactic..."</b> button and choose a fitting name.
+      </p>
+    </div>
+
+    <!-- TAB CONTENT: ACTIONS -->
+    <div class="help-tab-content" id="tab-actions">
+      <h2 class="help-section-title">Player actions explained</h2>
+      <p class="help-paragraph">
+        <b>Rush:</b> Fast movement. Click a player, choose Rush, then drag to draw the path.<br>
+        <b>Walk:</b> Slow movement. Same as Rush, but with reduced speed.<br>
+        <b>Wait:</b> Player stays at the current position for a set number of seconds.<br>
+        <b>Utilities:</b> Select the utility type, then click on the map to define the throw destination.<br>
+        <b>Plant Bomb:</b> Available only for Terrorists. Places the bomb at the player's current position (auto-snapped to the next valid plant area).<br>
+        <b>Teleport:</b> Instantly move a player to any position on the map (useful on Nuke when players move to another floor).<br>
+        <b>Remove last action:</b> Deletes only the most recent action of that player.<br>
+        <b>Reset player:</b> Removes all actions and sends the player back to spawn.
+      </p>
+
+      <h2 class="help-section-title">Undo</h2>
+      <p class="help-paragraph">
+        Use the <b>Undo</b> button to revert the most recent change.  
+      </p>
+    </div>
+
+    <!-- TAB CONTENT: SIMULATION -->
+    <div class="help-tab-content" id="tab-simulation">
+      <h2 class="help-section-title">Simulating tactics</h2>
+      <p class="help-paragraph">
+        <b>Simulate</b> runs your tactic in a clean environment without enemies.<br><br>
+        <b>Simulate</b> includes:<br>
+        – Visualization of all player actions<br>
+        – Utility flight paths and explosions<br>
+        – Flash, smoke and molotov effects<br>
+        – Bomb planting<br><br>
+        <b>Simulate (With Enemy)</b> loads a saved random enemy tactic for the same map and simulates both teams simultaneously.<br><br>
+
+        <b>Simulate (With Enemy)</b> includes:<br>
+        – Visualization of all player actions<br>
+        – Utility flight paths and explosions<br>
+        – Grenade damage, blinding flashes, vision blocking smokes and molotov damage<br>
+        – Line-of-sight based shooting<br>
+        – HP system and deaths<br>
+        – Bomb planting, defusing and explosion logic<br>
+        - Win conditions similar to Counter-Strike 2<br><br>
+
+        The round ends automatically with a popup when a win condition is reached.
+      </p>
+
+      <h2 class="help-section-title">Round & bomb timers</h2>
+      <p class="help-paragraph">
+        The round timer starts when you start a simulation.  
+        If the bomb is planted, the bomb timer replaces the round timer.<br><br>
+
+        Counter-Terrorists automatically attempt to defuse the bomb if they reach it.<br> 
+        If the defuse completes, Counter-Terrorists win.<br>
+        If the bomb explodes, Terrorists win.<br>
+      </p>
+    </div>
+
+    <!-- TAB CONTENT: ADVANCED -->
+    <div class="help-tab-content" id="tab-advanced">
+      <h2 class="help-section-title">Saving and loading tactics</h2>
+      <p class="help-paragraph">
+        <b>Save Tactic…</b> stores the current tactic under a name of your choice in the <b>Saved Tactics</b> list.<br>
+        Clicking on a saved tactics name lets you switch between all saved tactics for the selected map and team.<br>
+        <b>Delete Tactic</b> removes the currently selected tactic.<br>
+        <b>New Tactic</b> clears the current tactic and resets all players to spawn.<br><br>
+
+        You can also export individual tactics or entire playbooks as JSON files, share them with others and import them at any time.
+      </p>
+
+      <h2 class="help-section-title">Statistics</h2>
+      <p class="help-paragraph">
+        For each tactic you can track its own win/loss statistics.  
+        Use the <b>+</b> and <b>–</b> buttons to manually adjust wins and losses  
+        based on your real matches.
+      </p>
+
+      <h2 class="help-section-title">Player Instructions & Notes</h2>
+      <p class="help-paragraph">
+        The panel on the right side is ideal for writing:<br>
+        – Player instructions<br>
+        – Utility lineups<br>
+        – Timing details<br>
+        – Tactical ideas<br>
+        – Reminders for your team<br><br>
+
+        All this notes are saved together with the current tactic.
+      </p>
+    </div>
+
+    <!-- TAB CONTENT: KNOWN ISSUES -->
+<div class="help-tab-content" id="tab-issues">
+  <h2 class="help-section-title">Known Issues</h2>
+
+  <p class="help-paragraph">
+    <b>In <b>Simulate (With Enemy)</b> players can appear to move and shoot between floors on maps like Train.</b><br>
+    The tool does not detect vertical levels or height differences,  
+    so all movement is interpreted on a single 2D plane.  
+    This can cause players to overlap or appear in unexpected positions  
+    when a map has multiple floors.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Utility always travels in a straight line.</b><br>
+    Grenades do not follow real Counter-Strike 2 physics (no arcs, no bounces).  
+    This is intentional for clarity but may differ from in‑game behavior.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Flash effects are simplified.</b><br>
+    Flashbangs use a radius‑based effect instead of checking player view angles  
+    or line‑of‑sight.  
+    This means players may be flashed in the tool even if they wouldn’t be in Counter-Strike 2.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Smokes block vision as a simple circle.</b><br>
+    Counter-Strike 2’s volumetric smokes behave more dynamically (expanding, reacting to shots,  
+    interacting with geometry).  
+    The tool uses a simplified circular smoke area for clarity.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Line‑of‑sight is purely 2D.</b><br>
+    The tool checks visibility only on a flat top‑down map.  
+    It does not account for head‑glitches, ramps, elevation, or pixel angles.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Very thin walls may sometimes be passed through.</b><br>
+    If a wall in the map is only 1–2 pixels wide,  
+    movement paths can occasionally slip through.  
+    (This is being improved continuously.)
+  </p>
+
+  <p class="help-paragraph">
+    <b>Simulation is deterministic.</b><br>
+    There is no randomness such as recoil, spread, movement inaccuracy,  
+    or damage variation.  
+    This makes simulations consistent but less realistic than Counter-Strike 2.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Molotov and HE explosion shapes are simplified.</b><br>
+    Real Counter-Strike 2 fire spreads unevenly depending on geometry.  
+    In the tool, all utility uses clean circular areas for readability.
+  </p>
+
+  <p class="help-paragraph">
+    <b>No sound system is simulated.</b><br>
+    Enemy rotations do not react to footsteps, utility sounds, or bomb audio.  
+    All movement is purely scripted by the tactic.
+  </p>
+
+  <p class="help-paragraph">
+    <b>No friendly fire.</b><br>
+    Teammates cannot damage each other while shooting.  
+    This is intentional but worth noting for realism.
+  </p>
+
+  <p class="help-paragraph">
+    <b>Bomb planting is simplified.</b><br>
+    The bomb snaps to the nearest valid plant area.  
+    Edge‑cases like “bomb stuck on box” do not exist in the tool.
+  </p>
+</div>
+</div>
+  </div>
+</div>
+
+  </div>
+</div>
 
 <script>
 /* -------------------------------------------------------
@@ -497,11 +840,10 @@ let maskImageData = null;
 let currentMaskMap = null;
 
 // Shooting config
-const SHOOT_INTERVAL = 0.12;   // seconds
+const SHOOT_INTERVAL = 0.15;   // seconds
 const HIT_PROBABILITY = 0.6;   // 60%
-const DAMAGE_PER_HIT = 35;     // HP
+const DAMAGE_PER_HIT = 35;     // in HP
 const STARTING_HP = 100;
-const ROTATION_SPEED = 400;    // Rotation speed: degrees per second (realistic CS2 ~ 400°/s)
 
 // Active smoke clouds (each has x, y, radius, endTime)
 let activeSmokes = [];
@@ -565,14 +907,12 @@ function getMaskBrightness(x, y) {
 function snapToNearestWhite(x, y, lastSafe) {
   if (!maskImageData) return { x, y };
 
-  const maxRadius = 40; // größerer Radius für Sicherheit
+  const maxRadius = 40;
 
-  // Falls aktueller Punkt schon weiß → sofort zurück
   if (getMaskBrightness(x, y) > 30) {
     return { x, y };
   }
 
-  // Suche nach dem nächsten weißen Pixel
   for (let r = 1; r <= maxRadius; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dy = -r; dy <= r; dy++) {
@@ -588,7 +928,6 @@ function snapToNearestWhite(x, y, lastSafe) {
     }
   }
 
-  // Wenn KEIN weißer Pixel gefunden wurde → zurück zur letzten sicheren Position
   return lastSafe ? { x: lastSafe.x, y: lastSafe.y } : { x, y };
 }
 
@@ -601,7 +940,6 @@ function snapBombArea(x, y, marginPx = 3) {
   const bombW = 14;
   const bombH = 7;
 
-  // Prüft, ob das gesamte Bombenrechteck + Sicherheitsrand weiß ist
   function areaIsWhite(cx, cy) {
     for (let dx = -(bombW / 2 + marginPx); dx <= (bombW / 2 + marginPx); dx++) {
       for (let dy = -(bombH / 2 + marginPx); dy <= (bombH / 2 + marginPx); dy++) {
@@ -615,12 +953,10 @@ function snapBombArea(x, y, marginPx = 3) {
     return true;
   }
 
-  // Wenn aktuelle Position gültig ist → fertig
   if (areaIsWhite(x, y)) {
     return { x, y };
   }
 
-  // Sonst: suche in wachsendem Radius
   const maxRadius = 50;
 
   for (let r = 1; r <= maxRadius; r++) {
@@ -638,7 +974,6 @@ function snapBombArea(x, y, marginPx = 3) {
     }
   }
 
-  // Wenn nichts gefunden wurde → alte Position zurück
   return { x, y };
 }
 
@@ -670,8 +1005,8 @@ function hasLineOfSight(x1, y1, x2, y2) {
    PATHFINDING GRID (166×166) + A*
 ------------------------------------------------------- */
 
-const GRID_SIZE = 166;          // 166×166 grid
-const CELL_SIZE = 830 / GRID_SIZE; // ≈ 5px per cell
+const GRID_SIZE = 166;
+const CELL_SIZE = 830 / GRID_SIZE;
 let walkGrid = null;
 
 // Build walkability grid from mask
@@ -892,10 +1227,8 @@ function removeMolotovAt(x, y) {
 function isFlashed(player) {
   const now = performance.now();
 
-  // Entferne abgelaufene Flash-Effekte
   activeFlashes = activeFlashes.filter(f => f.endTime > now);
 
-  // Prüfen, ob dieser Spieler geflasht ist
   return activeFlashes.some(f => f.player === player);
 }
 
@@ -1663,19 +1996,15 @@ if (action === 'Molotov') {
 if (action === 'Plant Bomb') {
     pushHistorySnapshot(state.currentMap, state.currentTeam);
 
-    // Spielerposition zuerst normal snappen
     const safePlayer = snapToNearestWhite(player.x, player.y, { x: player.x, y: player.y });
     player.x = safePlayer.x;
     player.y = safePlayer.y;
 
-    // Bombenposition anhand des Rechtecks + 3px Sicherheitsrand snappen
     const safeBomb = snapBombArea(player.x, player.y, 3);
 
-    // Spieler ggf. auf die gesnapte Bombenposition setzen
     player.x = safeBomb.x;
     player.y = safeBomb.y;
 
-    // PlantBomb-Action speichern
     player.paths.push({
         type: 'PlantBomb',
         x: safeBomb.x,
@@ -1781,7 +2110,6 @@ function onPlayerMouseDown(e) {
   state.dragging.active = true;
   state.dragging.playerId = playerId;
 
-  // NEU: letzte sichere Position speichern
   let lastSafe = { x: player.x, y: player.y };
 
   const newPath = {
@@ -1798,16 +2126,12 @@ function onPlayerMouseDown(e) {
     let x = ev.clientX - rect.left;
     let y = ev.clientY - rect.top;
 
-    // SNAP mit Fallback auf lastSafe
     const snapped = snapToNearestWhite(x, y, lastSafe);
     x = snapped.x;
     y = snapped.y;
 
-    // Wenn snapped == lastSafe → wir waren in einer Wand
     if (x === lastSafe.x && y === lastSafe.y) {
-      // Spieler bleibt an der Wand hängen
     } else {
-      // Neue sichere Position speichern
       lastSafe = { x, y };
     }
 
@@ -1986,9 +2310,7 @@ function buildAnimationState() {
       el: null,
       isEnemy: false,          // eigenes Team
       hp: STARTING_HP,
-      alive: true,
-      viewAngle: 0,            // current facing direction in degrees
-      rotationRemaining: 0     // time until fully turned
+      alive: true
     });
   });
 
@@ -2003,15 +2325,9 @@ function autoRushIfNoActions(player, enemies) {
   if (!player.alive) return;
   if (!player.done) return;
 
-  // ---------------------------------------------------------
-  // CT korrekt erkennen (egal ob ich T oder CT spiele)
-  // ---------------------------------------------------------
   const ctTeamIsEnemy = (state.currentTeam === "T");
   const playerIsCT = (player.isEnemy === ctTeamIsEnemy);
 
-  // ---------------------------------------------------------
-  // CT sollen defusen, wenn Bombe liegt
-  // ---------------------------------------------------------
   const ctShouldDefuse =
     state.animation.checkWin &&
     state.bomb.planted &&
@@ -2029,12 +2345,10 @@ function autoRushIfNoActions(player, enemies) {
     // ---------------------------------------------------------
     if (dist < 12) {
 
-      // Wenn bereits ein Defuser existiert → andere CT NICHT defusen lassen
       if (state.bomb.defuser && state.bomb.defuser !== player) {
         return;
       }
 
-      // Wenn noch kein Defuser existiert → dieser CT wird Defuser
       if (!state.bomb.defuser) {
         state.bomb.defuser = player;
         player.defuseRemaining = 5;
@@ -2270,9 +2584,7 @@ function buildEnemyAnimationState(enemyPlayers) {
       el: null,
       isEnemy: true,
       hp: STARTING_HP,
-      alive: true,
-      viewAngle: 0,            // current facing direction in degrees
-      rotationRemaining: 0     // time until fully turned
+      alive: true
     });
   });
 
@@ -2318,7 +2630,6 @@ function addUtilityToAnimation(path) {
   el.style.height = '5px';
   el.style.borderRadius = '50%';
 
-  // Farbe abhängig vom Typ
   if (path.type === 'Grenade') el.style.backgroundColor = 'red';
   if (path.type === 'Flashbang') el.style.backgroundColor = 'white';
   if (path.type === 'Smoke') el.style.backgroundColor = 'green';
@@ -2390,28 +2701,22 @@ function animationLoop(timestamp) {
       /* WAIT — now using real seconds */
 if (path.type === 'Wait') {
 
-  // Initialisieren, falls noch nicht gesetzt
   if (p.waitRemaining == null) {
     p.waitRemaining = path.seconds;
   }
 
-  // dtMs ist echte Zeit in Millisekunden → umrechnen in Sekunden
   const dtSeconds = dtMs / 1000;
 
-  // Zeit herunterzählen
   p.waitRemaining -= dtSeconds;
 
-  // Spieler bleibt während Wait an seiner Position
   p.x = path.x;
   p.y = path.y;
 
-  // Wenn Wartezeit abgelaufen → weiter zum nächsten Pfad
   if (p.waitRemaining <= 0) {
     p.waitRemaining = null;
     p.currentPathIndex++;
   }
 
-  // Warten verbraucht den gesamten Frame
   remaining = 0;
   continue;
 }
@@ -2693,7 +2998,7 @@ if (!state.animation.checkWin) {
 function performShootingStep() {
   const players = state.animation.players.filter(p => p.alive);
 
-  const hits = [];
+  const hits = []; // { shooter, target }
 
   players.forEach(shooter => {
     const enemies = players.filter(
@@ -2705,12 +3010,8 @@ function performShootingStep() {
       hasLineOfSight(shooter.x, shooter.y, enemy.x, enemy.y)
     );
 
-    if (visibleEnemies.length === 0) {
-      shooter.rotationRemaining = 0;
-      return;
-    }
+    if (visibleEnemies.length === 0) return;
 
-    // Pick nearest visible enemy
     let target = null;
     let bestDist = Infinity;
     visibleEnemies.forEach(enemy => {
@@ -2725,14 +3026,6 @@ function performShootingStep() {
 
     if (!target) return;
 
-    // --- NEW: rotation update ---
-    const dt = SHOOT_INTERVAL;
-    updateRotation(shooter, target, dt);
-
-    // If still rotating → cannot shoot
-    if (shooter.rotationRemaining > 0) return;
-
-    // Flash reduces accuracy
     const hitChance = isFlashed(shooter) ? 0.10 : HIT_PROBABILITY;
 
     if (Math.random() < hitChance) {
@@ -2740,7 +3033,6 @@ function performShootingStep() {
     }
   });
 
-  // Prevent mutual kills
   const finalHits = [];
 
   hits.forEach(hit => {
@@ -2750,7 +3042,7 @@ function performShootingStep() {
 
     if (reverse) {
       if (!finalHits.includes(reverse) && !finalHits.includes(hit)) {
-        finalHits.push(hit);
+        finalHits.push(hit); 
       }
     } else {
       finalHits.push(hit);
@@ -2760,27 +3052,6 @@ function performShootingStep() {
   finalHits.forEach(hit => {
     hit.target.hp -= DAMAGE_PER_HIT;
   });
-}
-
-function updateRotation(shooter, target, dt) {
-  // Compute desired angle
-  const dx = target.x - shooter.x;
-  const dy = target.y - shooter.y;
-  const desired = Math.atan2(dy, dx) * 180 / Math.PI;
-
-  // Normalize angles
-  let diff = desired - shooter.viewAngle;
-  diff = ((diff + 540) % 360) - 180; // shortest rotation path
-
-  const maxTurn = ROTATION_SPEED * dt;
-
-  if (Math.abs(diff) <= maxTurn) {
-    shooter.viewAngle = desired;
-    shooter.rotationRemaining = 0;
-  } else {
-    shooter.viewAngle += Math.sign(diff) * maxTurn;
-    shooter.rotationRemaining = Math.abs(diff) / ROTATION_SPEED;
-  }
 }
 
 function checkWinCondition() {
@@ -2802,7 +3073,6 @@ function checkWinCondition() {
     const myTeamIsT = (state.currentTeam === "T");
     const aliveCTs = state.animation.players.filter(p => p.alive && p.isEnemy === myTeamIsT);
 
-    // Wenn Bombe liegt und keine CTs mehr leben → T gewinnt sofort
     if (aliveCTs.length === 0) {
       stopAllTimers();
       state.animation.running = false;
@@ -2819,7 +3089,6 @@ function checkWinCondition() {
       return true;
     }
 
-    // Bombe liegt → Kills entscheiden NICHT mehr
     return false;
   }
 
@@ -2949,32 +3218,26 @@ function createUtilityExplosion(g) {
 ------------------------------------------------------- */
 
 function resetRoundTimer() {
-  // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
     state.roundTimer.interval = null;
   }
 
-  // Unified tick stoppen (WICHTIG!)
   if (state.unifiedInterval) {
     clearInterval(state.unifiedInterval);
     state.unifiedInterval = null;
   }
 
-  // Duration timer zurücksetzen
   state.durationTimer.seconds = 0;
   durationDisplay.textContent = "0:00";
 
-  // Round time zurücksetzen
   state.roundTimer.remaining = 115;
   roundTimeDisplay.textContent = "1:55";
 
-  // Score zurücksetzen
   state.score.T = 0;
   state.score.CT = 0;
   updateScoreDisplay();
 
-  // Bombenstatus zurücksetzen
   state.bomb.planted = false;
   state.bomb.timer = 40;
 
@@ -2985,38 +3248,30 @@ function resetRoundTimer() {
 }
 
 function startPreCountdown(callback) {
-  // Countdown entfernt → sofort starten
   callback();
 }
 
 function startDurationPreCountdown(callback) {
-  // Countdown entfernt → sofort starten
   callback();
 }
 
 function startDurationTimer() {
-  // Falls unified tick schon läuft → nichts tun
   if (state.unifiedInterval) return;
 
-  // Unified Tick starten
   startUnifiedTick();
 }
 
 function startBombTimer() {
-  // Round timer stoppen
   if (state.roundTimer.interval) {
     clearInterval(state.roundTimer.interval);
     state.roundTimer.interval = null;
   }
 
-  // Bombenstatus setzen
   state.bomb.planted = true;
   state.bomb.timer = 40;
 
-  // Anzeige sofort aktualisieren
   roundTimeDisplay.textContent = "0:40";
 
-  // Unified Tick starten (falls nicht aktiv)
   startUnifiedTick();
 }
 
@@ -3037,7 +3292,7 @@ function startUnifiedTick() {
 
 
     // ---------------------------------------------------------
-    // ROUND TIMER (wenn Bombe NICHT liegt)
+    // ROUND TIMER
     // ---------------------------------------------------------
     if (!state.bomb.planted && state.roundTimer.remaining > 0) {
 
@@ -3067,7 +3322,7 @@ function startUnifiedTick() {
 
 
     // ---------------------------------------------------------
-    // DEFUSE CHECK (nur EIN CT darf defusen)
+    // DEFUSE CHECK
     // ---------------------------------------------------------
     if (state.bomb.planted) {
 
@@ -3076,12 +3331,10 @@ function startUnifiedTick() {
         p => p.alive && (p.isEnemy === ctTeamIsEnemy)
       );
 
-      // Falls aktueller Defuser tot → freigeben
       if (state.bomb.defuser && !state.bomb.defuser.alive) {
         state.bomb.defuser = null;
       }
 
-      // Falls kein Defuser → CT auswählen, der auf Bombe steht
       if (!state.bomb.defuser) {
         for (const ct of CTs) {
           const dx = ct.x - state.bomb.x;
@@ -3096,7 +3349,6 @@ function startUnifiedTick() {
         }
       }
 
-      // Wenn es einen Defuser gibt → Timer runterzählen
       if (state.bomb.defuser) {
         state.bomb.defuser.defuseRemaining -= 1;
 
@@ -3241,7 +3493,6 @@ btnPlayVs.addEventListener('click', () => {
     return;
   }
 
-  // Mask für aktuelle Map laden, dann erst starten
   loadMaskForMap(map, () => {
 buildWalkabilityGrid();
     // Random enemy tactic
@@ -3306,38 +3557,31 @@ btnPause.addEventListener('click', () => {
   state.paused = !state.paused;
 
   if (state.paused) {
-    // Animation pausieren
     if (state.animation.frameRequest) {
       cancelAnimationFrame(state.animation.frameRequest);
       state.animation.frameRequest = null;
     }
 
-    // Round timer pausieren
     if (state.roundTimer.interval) {
       clearInterval(state.roundTimer.interval);
       state.roundTimer.interval = null;
     }
 
-    // Unified tick pausieren
     if (state.unifiedInterval) {
       clearInterval(state.unifiedInterval);
       state.unifiedInterval = null;
     }
 
   } else {
-    // Animation fortsetzen
     state.animation.lastTime = null;
     state.animation.frameRequest = requestAnimationFrame(animationLoop);
 
-    // Wenn Bombe liegt → unified tick starten
     if (state.bomb.planted) {
       startUnifiedTick();
     } else {
-      // Sonst normalen Round Timer starten
       if (state.roundTimer.remaining > 0) {
       }
 
-      // Duration Timer starten
       startDurationTimer();
     }
   }
@@ -3578,6 +3822,44 @@ document.getElementById("btnLoss").addEventListener("click", () => {
   }
 
   renderStats();
+});
+
+/* -------------------------------------------------------
+   HELP POPUP
+------------------------------------------------------- */
+
+const helpPopup = document.getElementById("helpPopup");
+const helpButton = document.getElementById("helpButton");
+const helpClose = document.querySelector(".help-close");
+
+helpButton.addEventListener("click", () => {
+  helpPopup.classList.remove("hidden");
+});
+
+helpClose.addEventListener("click", () => {
+  helpPopup.classList.add("hidden");
+});
+
+helpPopup.addEventListener("click", (e) => {
+  if (e.target === helpPopup) {
+    helpPopup.classList.add("hidden");
+  }
+});
+
+/* -------------------------------------------------------
+   HELP TABS
+------------------------------------------------------- */
+
+document.querySelectorAll(".help-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+
+    document.querySelectorAll(".help-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    const target = tab.dataset.tab;
+    document.querySelectorAll(".help-tab-content").forEach(c => c.classList.remove("active"));
+    document.getElementById("tab-" + target).classList.add("active");
+  });
 });
 
 // --- Round won (-) ---
