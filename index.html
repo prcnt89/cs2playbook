@@ -501,6 +501,7 @@ const SHOOT_INTERVAL = 0.12;   // seconds
 const HIT_PROBABILITY = 0.6;   // 60%
 const DAMAGE_PER_HIT = 35;     // HP
 const STARTING_HP = 100;
+const ROTATION_SPEED = 400;    // Rotation speed: degrees per second (realistic CS2 ~ 400°/s)
 
 // Active smoke clouds (each has x, y, radius, endTime)
 let activeSmokes = [];
@@ -1985,7 +1986,9 @@ function buildAnimationState() {
       el: null,
       isEnemy: false,          // eigenes Team
       hp: STARTING_HP,
-      alive: true
+      alive: true,
+      viewAngle: 0,            // current facing direction in degrees
+      rotationRemaining: 0     // time until fully turned
     });
   });
 
@@ -2267,7 +2270,9 @@ function buildEnemyAnimationState(enemyPlayers) {
       el: null,
       isEnemy: true,
       hp: STARTING_HP,
-      alive: true
+      alive: true,
+      viewAngle: 0,            // current facing direction in degrees
+      rotationRemaining: 0     // time until fully turned
     });
   });
 
@@ -2688,10 +2693,7 @@ if (!state.animation.checkWin) {
 function performShootingStep() {
   const players = state.animation.players.filter(p => p.alive);
 
-  // -----------------------------------------
-  // 1. Treffer sammeln, aber NICHT anwenden
-  // -----------------------------------------
-  const hits = []; // { shooter, target }
+  const hits = [];
 
   players.forEach(shooter => {
     const enemies = players.filter(
@@ -2703,8 +2705,12 @@ function performShootingStep() {
       hasLineOfSight(shooter.x, shooter.y, enemy.x, enemy.y)
     );
 
-    if (visibleEnemies.length === 0) return;
+    if (visibleEnemies.length === 0) {
+      shooter.rotationRemaining = 0;
+      return;
+    }
 
+    // Pick nearest visible enemy
     let target = null;
     let bestDist = Infinity;
     visibleEnemies.forEach(enemy => {
@@ -2719,6 +2725,14 @@ function performShootingStep() {
 
     if (!target) return;
 
+    // --- NEW: rotation update ---
+    const dt = SHOOT_INTERVAL;
+    updateRotation(shooter, target, dt);
+
+    // If still rotating → cannot shoot
+    if (shooter.rotationRemaining > 0) return;
+
+    // Flash reduces accuracy
     const hitChance = isFlashed(shooter) ? 0.10 : HIT_PROBABILITY;
 
     if (Math.random() < hitChance) {
@@ -2726,9 +2740,7 @@ function performShootingStep() {
     }
   });
 
-  // -----------------------------------------
-  // 2. Gegenseitige Kills verhindern
-  // -----------------------------------------
+  // Prevent mutual kills
   const finalHits = [];
 
   hits.forEach(hit => {
@@ -2737,22 +2749,38 @@ function performShootingStep() {
     );
 
     if (reverse) {
-      // Beide würden sich gegenseitig treffen → nur EIN Treffer zählt
-      // Wir nehmen den zuerst gefundenen
       if (!finalHits.includes(reverse) && !finalHits.includes(hit)) {
-        finalHits.push(hit); 
+        finalHits.push(hit);
       }
     } else {
       finalHits.push(hit);
     }
   });
 
-  // -----------------------------------------
-  // 3. Treffer anwenden
-  // -----------------------------------------
   finalHits.forEach(hit => {
     hit.target.hp -= DAMAGE_PER_HIT;
   });
+}
+
+function updateRotation(shooter, target, dt) {
+  // Compute desired angle
+  const dx = target.x - shooter.x;
+  const dy = target.y - shooter.y;
+  const desired = Math.atan2(dy, dx) * 180 / Math.PI;
+
+  // Normalize angles
+  let diff = desired - shooter.viewAngle;
+  diff = ((diff + 540) % 360) - 180; // shortest rotation path
+
+  const maxTurn = ROTATION_SPEED * dt;
+
+  if (Math.abs(diff) <= maxTurn) {
+    shooter.viewAngle = desired;
+    shooter.rotationRemaining = 0;
+  } else {
+    shooter.viewAngle += Math.sign(diff) * maxTurn;
+    shooter.rotationRemaining = Math.abs(diff) / ROTATION_SPEED;
+  }
 }
 
 function checkWinCondition() {
