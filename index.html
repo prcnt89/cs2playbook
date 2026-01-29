@@ -482,7 +482,7 @@ body {
           <!-- Round Time + Play/Stop Menü -->
 <div style="margin-top:12px;">
 
-  <!-- MATCHINFOS als eigenes Menü -->
+  <!-- MATCHINFOS -->
 <div class="menu" style="text-align:center;">
   <h3>Matchinfos</h3>
 
@@ -909,7 +909,7 @@ function snapToNearestWhite(x, y, lastSafe) {
 
   const maxRadius = 40;
 
-  if (getMaskBrightness(x, y) > 30) {
+  if (getMaskBrightness(x, y) > 30 && hasLineOfSight(lastSafe.x, lastSafe.y, x, y)) {
     return { x, y };
   }
 
@@ -922,7 +922,9 @@ function snapToNearestWhite(x, y, lastSafe) {
         if (nx < 0 || ny < 0 || nx >= 830 || ny >= 830) continue;
 
         if (getMaskBrightness(nx, ny) > 30) {
-          return { x: nx, y: ny };
+          if (hasLineOfSight(lastSafe.x, lastSafe.y, nx, ny)) {
+            return { x: nx, y: ny };
+          }
         }
       }
     }
@@ -1810,11 +1812,9 @@ tab.players.forEach(player => {
 function updateTacticInfoDisplay() {
   const map = state.currentMap;
 
-  // Eigene Taktik
   const myTab = state.tabs[map][state.currentTeam];
   const myName = myTab.currentTacticName || "(no tactic selected)";
 
-  // Gegnerische Taktik (nur bei PlayVs gesetzt)
   let enemyName = state.lastEnemyTacticName || "";
 
   document.getElementById("yourTacticName").textContent = myName;
@@ -2105,13 +2105,16 @@ function onPlayerMouseDown(e) {
   const player = tab.players.find(p => p.id === playerId);
   if (!player) return;
 
+  // History snapshot
   pushHistorySnapshot(state.currentMap, state.currentTeam);
 
   state.dragging.active = true;
   state.dragging.playerId = playerId;
 
+  // Last safe position (guaranteed white pixel)
   let lastSafe = { x: player.x, y: player.y };
 
+  // Create new path
   const newPath = {
     type: action,
     points: [{ x: player.x, y: player.y }]
@@ -2126,19 +2129,29 @@ function onPlayerMouseDown(e) {
     let x = ev.clientX - rect.left;
     let y = ev.clientY - rect.top;
 
+    // Snap to nearest white pixel with LoS check
     const snapped = snapToNearestWhite(x, y, lastSafe);
     x = snapped.x;
     y = snapped.y;
 
-    if (x === lastSafe.x && y === lastSafe.y) {
-    } else {
+    // Update last safe position
+    if (x !== lastSafe.x || y !== lastSafe.y) {
       lastSafe = { x, y };
     }
 
+    const path = player.paths[state.dragging.pathId];
+    const lastPoint = path.points[path.points.length - 1];
+
+    // NEW: Prevent wall‑cutting — segment must be fully walkable
+    if (!hasLineOfSight(lastPoint.x, lastPoint.y, x, y)) {
+      return; // Do not add point, do not move player
+    }
+
+    // Update player position
     player.x = x;
     player.y = y;
 
-    const path = player.paths[state.dragging.pathId];
+    // Add new path point
     path.points.push({ x, y });
 
     renderPlayersAndPaths();
@@ -2148,6 +2161,7 @@ function onPlayerMouseDown(e) {
     state.dragging.active = false;
     state.dragging.playerId = null;
     state.dragging.pathId = null;
+
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onUp);
   };
@@ -2308,7 +2322,7 @@ function buildAnimationState() {
       waitRemaining: null,
       done: false,
       el: null,
-      isEnemy: false,          // eigenes Team
+      isEnemy: false,
       hp: STARTING_HP,
       alive: true
     });
